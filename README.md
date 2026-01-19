@@ -11,9 +11,8 @@ The workspace integrates AI-powered development tools through OpenCode and Oh-My
 ## Required Toolchain
 
 **For OpenCode + Oh-My-OpenCode:**
-- Visual Studio Code
 - OpenCode extension (AI-powered development assistant)
-- Oh-My-OpenCode skills (included in `.opencode/skill/`)
+- Oh-My-OpenCode plugin (provides additional agent design capabilities for OpenCode)
 
 **For Longhorn Development:**
 - Git
@@ -44,6 +43,7 @@ workspace-root/
       support-bundle-analysis/  (Diagnostics)
       longhorn-user-docs/       (Documentation assistance)
   repo/                         (all Longhorn repositories)
+    repo-list                   (List of repositories to clone - used by repo-init skill)
     backing-image-manager/      (Team-owned component)
     cli/                        (Team-owned component)
     longhorn-engine/            (Team-owned component)
@@ -110,7 +110,7 @@ cd repo/[repo-name]
 git remote add origin https://github.com/[your-account]/[repo-name]
 ```
 
-## Working with Oh-My-OpenCode Skills
+## Working with OpenCode Skills
 
 The workspace includes specialized AI skills under `.opencode/skill/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
 
@@ -164,10 +164,6 @@ The workspace includes specialized AI skills under `.opencode/skill/` that autom
 - **Longhorn Documentation**: https://longhorn.io/docs/
 - **GitHub Organization**: https://github.com/longhorn
 - **Community**: https://longhorn.io/community/
-
-## License
-
-Longhorn is licensed under the Apache License 2.0. See individual repositories for license details.
 
 ---
 
