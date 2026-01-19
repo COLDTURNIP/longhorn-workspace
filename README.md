@@ -8,91 +8,7 @@ This workspace provides a unified environment for developing across Longhorn's m
 
 The workspace integrates AI-powered development tools through OpenCode and Oh-My-OpenCode, providing intelligent assistance for code navigation, repository initialization, build system management, and more.
 
-## Workspace Architecture
-
-This workspace is built on two key technologies:
-
-### OpenCode
-A VS Code extension that enables AI-powered development assistance directly in your IDE, providing context-aware code suggestions and automated workflows.
-
-### Oh-My-OpenCode Agents
-A collection of specialized AI skills that automate common Longhorn development tasks:
-
-- **repo-init**: Automatically clones all Longhorn repositories with proper upstream configuration
-- **interaction-mapper**: Generates architectural maps of component interactions
-- **repo-navigator**: Intelligent code navigation across multiple repositories
-- **longhorn-build-system**: Build system expertise for Dapper-based and other toolchains
-- **sync-crd-helm**: Synchronizes CRD definitions with Helm charts
-- **ascii-scanner**: Enforces ASCII-only policy across the codebase
-- **ticket-sanitizer**: Validates and sanitizes ticket information
-- **support-bundle-analysis**: Analyzes Longhorn support bundles for diagnostics
-- **longhorn-user-docs**: Assists with user documentation
-
-### What is Longhorn?
-
-Longhorn is a cloud-native distributed block storage solution that provides:
-- Highly available persistent storage for Kubernetes
-- Backup and disaster recovery capabilities
-- Volume snapshots and cloning
-- Cross-cluster volume migration
-- Storage tiering with backing images
-
-## Workspace Structure
-
-The workspace is organized as follows:
-
-```
-workspace-root/
-  README.md                     (this file)
-  AGENTS.md                     (AI agent instructions - not for commit)
-  .opencode/                    (local development state)
-  repo/                         (all Longhorn repositories)
-    [component repositories]
-  ticket/                       (task-specific workspace)
-```
-
-### Repository Organization
-
-Repositories are organized under the `repo/` directory by category:
-
-#### Core Components (Team-Owned)
-- **longhorn-manager** - Main orchestration and API server
-- **longhorn-engine** - Storage engine implementation
-- **longhorn-instance-manager** - Instance lifecycle management
-- **backing-image-manager** - Backing image lifecycle management
-- **longhorn-share-manager** - Shared volume management
-- **longhorn-spdk-engine** - SPDK-based storage engine
-- **cli** - Command-line interface
-
-#### Shared Libraries
-- **types** - CRD definitions and API types (Foundation layer)
-- **go-common-libs** - Shared Go utilities and helpers
-- **backupstore** - Backup storage abstraction
-- **go-iscsi-helper** - iSCSI protocol helpers
-- **go-spdk-helper** - SPDK abstraction layer
-- **sparse-tools** - Sparse file handling utilities
-
-#### CSI Sidecars (Upstream)
-- **csi-attacher** - Volume attachment controller
-- **csi-node-driver-registrar** - Node driver registration
-- **csi-provisioner** - Volume provisioning
-- **csi-resizer** - Volume resizing
-- **csi-snapshotter** - Snapshot management
-- **livenessprobe** - Driver liveness probe
-
-#### Integration & Packaging
-- **longhorn** - Helm chart and deployment manifests
-- **longhorn-ui** - Frontend web dashboard
-- **longhorn-tests** - End-to-end test suite
-
-#### Version Management
-- **dep-versions** - Dependency version coordination
-
-## Getting Started
-
-### Prerequisites
-
-#### Required Toolchain
+## Required Toolchain
 
 **For OpenCode + Oh-My-OpenCode:**
 - Visual Studio Code
@@ -107,6 +23,54 @@ Repositories are organized under the `repo/` directory by category:
 - Python 3.x (for longhorn-tests)
 - Make
 - Helm (for chart validation)
+
+## Workspace Structure
+
+The workspace is organized as follows:
+
+```
+workspace-root/
+  README.md                     (this file)
+  AGENTS.md                     (AI agent instructions - not for commit)
+  .opencode/                    (local development state)
+    skill/                      (Oh-My-OpenCode AI skills)
+      repo-init/                (Repository initialization)
+      interaction-mapper/       (Architectural mapping)
+      repo-navigator/           (Code navigation)
+      longhorn-build-system/    (Build system expertise)
+      sync-crd-helm/            (CRD/Helm synchronization)
+      ascii-scanner/            (ASCII policy enforcement)
+      ticket-sanitizer/         (Ticket validation)
+      support-bundle-analysis/  (Diagnostics)
+      longhorn-user-docs/       (Documentation assistance)
+  repo/                         (all Longhorn repositories)
+    backing-image-manager/      (Team-owned component)
+    cli/                        (Team-owned component)
+    longhorn-engine/            (Team-owned component)
+    longhorn-instance-manager/  (Team-owned component)
+    longhorn-manager/           (Team-owned component)
+    longhorn-share-manager/     (Team-owned component)
+    longhorn-spdk-engine/       (Team-owned component)
+    types/                      (Shared library)
+    go-common-libs/             (Shared library)
+    backupstore/                (Shared library)
+    go-iscsi-helper/            (Shared library)
+    go-spdk-helper/             (Shared library)
+    sparse-tools/               (Shared library)
+    csi-attacher/               (Upstream CSI)
+    csi-node-driver-registrar/  (Upstream CSI)
+    csi-provisioner/            (Upstream CSI)
+    csi-resizer/                (Upstream CSI)
+    csi-snapshotter/            (Upstream CSI)
+    livenessprobe/              (Upstream CSI)
+    longhorn/                   (Packaging - Helm chart)
+    longhorn-ui/                (Packaging - Frontend)
+    longhorn-tests/             (Integration tests)
+    dep-versions/               (Version coordination)
+  ticket/                       (task-specific workspace)
+```
+
+## Initialization
 
 ### Quick Start with AI Agent
 
@@ -127,346 +91,73 @@ When you provide this prompt to the OpenCode AI agent:
 
 **Note:** The `repo-init` skill only sets up upstream remotes. You are responsible for managing your personal fork configuration if you plan to contribute code.
 
-### Manual Setup (Alternative)
+### Manual Initialization (Alternative)
 
-If you prefer manual setup or need to configure personal forks:
+If you prefer manual setup:
 
-1. **Clone the workspace repository**:
-   ```bash
-   git clone https://github.com/your-account/longhorn-workspace.git
-   cd longhorn-workspace
-   ```
+```bash
+# Clone the workspace repository
+git clone https://github.com/your-account/longhorn-workspace.git
+cd longhorn-workspace
 
-2. **Initialize repositories** (choose one method):
+# Initialize repositories using the repo-init skill
+bash .opencode/skill/repo-init/repo_init.sh
+```
 
-   **Option A: Using repo-init skill** (Recommended)
-   ```bash
-   bash .opencode/skill/repo-init/repo_init.sh
-   ```
-   This automatically clones all repositories with upstream configuration.
-
-   **Option B: Manual cloning**
-   Clone repositories listed in `repo/repo-list` manually into the `repo/` directory.
-
-3. **Configure personal fork** (Optional - for contributors):
-   The `repo-init` skill only sets up upstream remotes. To add your personal fork:
-   ```bash
-   cd repo/[repo-name]
-   
-   # Add origin (your personal fork)
-   git remote add origin https://github.com/[your-account]/[repo-name]
-   
-   # Verify configuration
-   git remote -v
-   ```
-
-   Expected output:
-   ```
-   origin    https://github.com/[your-account]/[repo-name] (fetch)
-   origin    https://github.com/[your-account]/[repo-name] (push)
-   upstream  https://github.com/longhorn/[repo-name] (fetch)
-   upstream  https://github.com/longhorn/[repo-name] (push)
-   ```
-
-## Development Workflow
-
-### Creating a Feature Branch
-
-Different repositories use different default branches (`main` or `master`). Always detect dynamically:
-
+To add your personal fork to a repository:
 ```bash
 cd repo/[repo-name]
-
-# Fetch latest upstream changes
-git fetch upstream
-
-# Detect default branch
-DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
-
-# Create feature branch from upstream
-git switch -c 12345-feature-description upstream/$DEFAULT_BRANCH
+git remote add origin https://github.com/[your-account]/[repo-name]
 ```
 
-### Branch Naming Convention
+## Working with Oh-My-OpenCode Skills
 
-Use the format: `[story-id]-[brief-description]`
+The workspace includes specialized AI skills under `.opencode/skill/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
 
-Examples:
-- `12345-fix-volume-attach`
-- `6789-add-backup-validation`
-- `54321-improve-csi-error-handling`
+### Available Skills
 
-### Making Changes
+- **repo-init**: Initialize and clone all repositories with upstream configuration
+  - Example: "init workspace" or "use repo-init skill to set up repositories"
 
-1. **Make your changes** in the feature branch
-2. **Build and test** your changes (see Build Commands below)
-3. **Commit** with clear, descriptive messages
-4. **Rebase** onto latest upstream before pushing:
-   ```bash
-   git fetch upstream
-   git rebase upstream/$DEFAULT_BRANCH
-   ```
-5. **Push** to your fork:
-   ```bash
-   git push -u origin 12345-feature-description
-   ```
-6. **Create Pull Request** on GitHub from your fork to upstream
+- **interaction-mapper**: Generate architectural maps showing component interactions
+  - Example: "map the interactions between components" or "use interaction-mapper to analyze the architecture"
 
-## Build Commands
+- **repo-navigator**: Navigate and search across multiple repositories
+  - Example: "use repo-navigator to find VolumeController implementation"
 
-### Native Longhorn Components (Dapper-based)
+- **longhorn-build-system**: Build system expertise for various toolchains
+  - Example: "use longhorn-build-system skill to build longhorn-manager"
 
-For repositories like longhorn-manager, longhorn-engine, etc.:
+- **sync-crd-helm**: Synchronize CRD definitions with Helm charts
+  - Example: "use sync-crd-helm to update Helm chart with latest CRDs"
 
-```bash
-cd repo/[repo-name]
+- **ascii-scanner**: Scan and enforce ASCII-only policy
+  - Example: "use ascii-scanner to check for non-ASCII characters"
 
-# Build
-make
+- **ticket-sanitizer**: Validate and sanitize ticket information
+  - Example: "use ticket-sanitizer to validate this issue description"
 
-# Test
-make test
+- **support-bundle-analysis**: Analyze Longhorn support bundles
+  - Example: "use support-bundle-analysis to diagnose this support bundle"
 
-# Validation (lint, vet, etc.)
-make validate
+- **longhorn-user-docs**: Assist with user documentation
+  - Example: "use longhorn-user-docs skill to update documentation"
 
-# Combined workflow
-make clean && make && make test && make validate
-```
-
-**Important**: Always use `make` - do NOT run `go build`, `go test`, or `docker build` directly. The Makefile invokes Dapper for consistent containerized builds.
-
-### Frontend (longhorn-ui)
-
-```bash
-cd repo/longhorn-ui
-
-npm install
-npm run build
-npm test
-```
-
-### Helm Chart (longhorn)
-
-```bash
-cd repo/longhorn
-
-helm lint chart/
-```
-
-### E2E Tests (longhorn-tests)
-
-```bash
-cd repo/longhorn-tests
-
-# Follow repository-specific instructions
-pytest  # or custom test runner
-```
-
-## Quality Standards
-
-### Code Standards
-
-1. **ASCII-Only**: All code, comments, and documentation must use only ASCII characters (0x00-0x7F)
-   - No Unicode, emoji, or special characters
-   - English language only
-
-2. **Minimal Changes**: Keep changes focused and minimal
-   - Only modify what's necessary for the feature/fix
-   - Avoid refactoring unrelated code
-
-3. **Clean Dependencies**: Before submitting PR
-   - Remove local `go.mod` replace directives
-   - Run `go mod tidy`
-   - Ensure no local paths remain
-
-### Pre-Pull Request Checklist
-
-Before submitting a PR, verify:
-
-- [ ] **ASCII-safe**: No non-ASCII characters in modified files
-  ```bash
-  git diff --name-only | xargs -I {} sh -c 'grep -P -n "[^\x00-\x7F]" {} || echo "{}: [OK]"'
-  ```
-
-- [ ] **Clean Go modules**: No local replace directives
-  ```bash
-  grep "replace" go.mod  # Should return nothing or approved directives only
-  go mod tidy
-  ```
-
-- [ ] **No AGENTS.md staged**: Workspace files not in commit
-  ```bash
-  git status | grep AGENTS.md  # Should return nothing
-  ```
-
-- [ ] **Builds pass**: Build completes successfully
-  ```bash
-  make clean && make && make test && make validate
-  ```
-
-## Dependency Hierarchy
-
-Understanding the dependency hierarchy helps predict impact:
-
-```
-Foundation
-  |
-  v
-types (CRD definitions)
-  |
-  v
-Utilities
-  |
-  v
-go-common-libs
-  |
-  v
-Helpers
-  |
-  v
-backupstore, go-iscsi-helper, go-spdk-helper, sparse-tools
-  |
-  v
-Components
-  |
-  v
-longhorn-engine, longhorn-spdk-engine
-  |
-  v
-Orchestration
-  |
-  v
-longhorn-instance-manager
-  |
-  v
-Controllers
-  |
-  v
-longhorn-manager, longhorn-share-manager
-  |
-  v
-Utilities & CLI
-  |
-  v
-backing-image-manager, cli
-  |
-  v
-Packaging
-  |
-  v
-longhorn (Helm), longhorn-ui, longhorn-tests
-```
-
-**Impact Rule**: When modifying lower-layer repositories (types, go-common-libs), upper-layer repositories will need to update their `go.mod` dependencies.
-
-## Common Tasks
-
-### Finding Code
-
-Use workspace-relative paths from the workspace root:
-
-```bash
-# Good: workspace-relative
-repo/longhorn-manager/controller/volume_controller.go
-
-# Bad: absolute paths
-/home/user/workspace/repo/longhorn-manager/...
-```
-
-### Searching Across Repositories
-
-```bash
-# Find files by pattern
-find repo/ -name "*.go" -type f | grep volume
-
-# Search for code patterns
-grep -r "VolumeController" repo/longhorn-manager/
-
-# Search across all repos
-grep -r "BackingImage" repo/*/
-```
-
-### Working with Local Dependencies
-
-During development, you can use local replace directives:
-
-```go
-// In go.mod
-replace github.com/longhorn/types => ../types
-```
-
-**Remember**: Remove all local replaces before submitting PR!
-
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Build fails: `dapper: not found` | Use `make` instead of `go build` directly |
-| Build fails: `go: cannot find module` | Run `go mod tidy` |
-| Can't push to upstream | Push to `origin` (your fork), not `upstream` |
-| Non-ASCII character error | Find and fix: `grep -P -n '[^\x00-\x7F]' filename` |
-| AGENTS.md in git status | Remove: `git reset AGENTS.md` |
-
-### Getting Help
-
-- **Documentation**: Check repository-specific README files
-- **Issues**: Search GitHub issues in the specific repository
-- **Community**: Join Longhorn Slack or community forums
-- **Design Docs**: Review design documents in `repo/longhorn/`
-
-## Best Practices
-
-### Code Investigation
-
-When investigating code:
-1. **Map first**: Identify which CRD, Controller, or Service is involved
-2. **Understand flow**: Trace the path from API call to implementation
-3. **Check dependencies**: Understand which libraries are used
-4. **Review tests**: Look at existing tests for usage examples
-
-### Pull Requests
-
-1. **Keep focused**: One feature or fix per PR
-2. **Write tests**: Add tests for new functionality
-3. **Update docs**: Update relevant documentation
-4. **Clean commits**: Use clear commit messages
-5. **Rebase regularly**: Keep your branch up to date with upstream
-
-### Testing
-
-1. **Test locally first**: Always test before pushing
-2. **Run relevant tests**: Focus on affected areas
-3. **Check integration**: For library changes, test dependent components
-4. **Validate builds**: Ensure clean builds across affected repositories
-
-## Path Conventions
-
-Always use workspace-relative paths in documentation and references:
-
-**Correct**:
-```
-repo/longhorn-manager
-repo/types/pkg/apis/longhorn.io/
-```
-
-**Incorrect**:
-```
-/home/user/workspace/repo/longhorn-manager
-./repo/types
-C:/Users/Developer/workspace/...
-```
-
-## Contributing
-
-1. Fork the relevant repository under your GitHub account
-2. Clone into the workspace `repo/` directory
-3. Create feature branch from upstream default branch
-4. Make changes following quality standards
-5. Test thoroughly
-6. Submit PR to upstream repository
+### Tips for Using Skills
+
+1. **Direct skill invocation**: Mention the skill name in your prompt
+   - "use [skill-name] skill to [task]"
+   - "invoke [skill-name] for [purpose]"
+
+2. **Task-based requests**: Describe what you want to accomplish
+   - The agent will automatically select appropriate skills
+   - Example: "initialize the workspace" will trigger repo-init
+
+3. **Multiple skills**: The agent can chain multiple skills
+   - Example: "init workspace and analyze the architecture" will use repo-init and interaction-mapper
+
+4. **Skill documentation**: Each skill has documentation in `.opencode/skill/[skill-name]/SKILL.md`
+   - Example: "show me the repo-init skill documentation"
 
 ## Additional Resources
 
