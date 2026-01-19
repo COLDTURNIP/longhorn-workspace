@@ -27,6 +27,33 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ---
 
+# CONTEXT LOADING PROTOCOL (MANDATORY)
+
+Before executing any task, you MUST identify if the request falls into a specific subsystem defined below. If a trigger matches, you REQUIRED to read the corresponding instruction file immediately to load the necessary context.
+
+* **Subsystem: Engineering and Build**
+    * *Triggers*:
+        - Creating, modifying, or refactoring source code.
+        - Running builds, tests, or validation commands.
+        - Managing dependencies (go.mod, package.json).
+        - Targeting any file within the "repo/" directory.
+    * *Action*:
+        - Execute `read_file("repo/AGENTS.md")`.
+    * *Rationale*:
+        - Contains critical "Build Contract" (e.g., use Make/Dapper instead of go build) and dependency impact rules.
+
+* **Subsystem: Issue Analysis**
+    * *Triggers*:
+        - Analyzing bugs, tickets, or failure reports.
+        - Processing Support Bundles or raw logs.
+        - Targeting any file within the "ticket/" directory.
+    * *Action*:
+        - Execute `read_file("ticket/AGENTS.md")`.
+    * *Rationale*:
+        - Contains strict "Evidence-Based Analysis" formats and folder naming conventions.
+
+---
+
 # PART 1: FOUNDATION AND POLICY
 
 ## Scope and Workspace Definition

@@ -1,150 +1,107 @@
-# Repository Management & Engineering Guide
+# Repository Engineering and Architecture Guide
 
-**Scope:** All Git repositories located under the @repo/ prefix.
-**Context:** This guide extends the global @AGENTS.md and focuses on the technical structure, dependencies, and build requirements of the Longhorn multi-repo codebase.
+**Context**: This guide is a specialized extension of the workspace root "AGENTS.md".
+**Inheritance**: All global policies (Git Workflow, ASCII-Only, Ghost Files) defined in the root "AGENTS.md" apply strictly to this directory.
+**Focus**: Component categorization, Dapper build toolchains, and dependency impact analysis.
 
-## Repository Categories & Ownership
+---
 
-Repositories are categorized to determine the level of permitted modification and the required build toolchain.
+## 1. Repository Categorization and Policy
 
-### Team-Owned Native Longhorn Component Repos (Allowlist)
+You MUST identify the repository type before modifying code to determine the allowed scope of changes.
 
-These are core components actively developed by the team. They follow the Dapper + scripts/ pattern.
+* **Type A: Team-Owned Native Components (Allowlist)**
+    * *Policy*: Full Refactoring and Feature Work Allowed.
+    * *Build System*: Dapper (Containerized).
+    * *Repositories*:
+        - longhorn-manager (Orchestration and API)
+        - longhorn-engine (Storage Engine Controller)
+        - longhorn-instance-manager (Process Lifecycle)
+        - longhorn-share-manager (NFS/vChents)
+        - backing-image-manager
+        - longhorn-spdk-engine (V2 Engine)
+        - cli
 
-- `backing-image-manager/`
-- `cli/`
-- `longhorn-engine/`
-- `longhorn-instance-manager/`
-- `longhorn-manager/`
-- `longhorn-share-manager/`
-- `longhorn-spdk-engine/` - part of Longhorn V2 engine
-- `longhorn-ui/` - Frontend (Node.js toolchain, not Go/Dapper).
+* **Type B: Shared Libraries (High-Impact)**
+    * *Policy*: High Caution. Changes here propagate to almost all other components.
+    * *Requirement*: You MUST analyze downstream impacts in "go.mod" of dependent repos.
+    * *Repositories*:
+        - types (CRDs and API definitions)
+        - go-common-libs (Utilities)
+        - backupstore, go-iscsi-helper, go-spdk-helper, sparse-tools
 
-**Policy:** Full feature work and refactoring permitted.
+* **Type C: Upstream CSI Sidecars (Vendor-Like)**
+    * *Policy*: Minimal Patching ONLY.
+        - PROHIBITED: Refactoring.
+        - PROHIBITED: Mechanical Formatting or Linting sweeps.
+        - ALLOWED: Only fix build issues or apply specific security patches.
+    * *Repositories*:
+        - csi-attacher, csi-provisioner, csi-resizer, csi-snapshotter, csi-node-driver-registrar
+        - livenessprobe
 
-### Shared Libraries / Helpers (High-Impact Allowlist)
+---
 
-High-impact dependencies. Changes here require coordinated validation across dependent components.
+## 2. The Build Contract (CRITICAL)
 
-- `types/`
-- `go-common-libs/`
-- `backupstore/`
-- `go-iscsi-helper/`
-- `go-spdk-helper/`
-- `sparse-tools/`
+* **Native Longhorn Components (Type A and B)**
+    * *Constraint*: NEVER run "go build" or "go test" directly on the host. These repos rely on "scripts/" wrapping Dapper.
+    * *Command: Build*
+        - Use: `make`
+        - Action: Compiles binaries inside Dapper container.
+    * *Command: Test*
+        - Use: `make test`
+        - Action: Runs unit tests inside Dapper.
+    * *Command: Validate*
+        - Use: `make validate`
+        - Action: Runs linting and static analysis.
+    * *Command: Clean*
+        - Use: `make clean`
+        - Action: Removes artifacts.
 
-**Policy:** Significant caution required. Verify downstream impacts in the dependency hierarchy.
+* **Upstream and Others (Type C and Integration)**
+    * *Constraint*: Do not assume "scripts/" exists.
+    * *CSI Sidecars*:
+        - Action: Check "Makefile" or "release-tools/". Follow upstream conventions.
+    * *UI (longhorn-ui)*:
+        - Action: Use Node.js toolchain (`npm install && npm run build`).
+    * *Tests (longhorn-tests)*:
+        - Action: Use Python toolchain.
 
-### Upstream CSI Sidecar Repos (NOT Owned by This Team)
+---
 
-These repositories are upstream kubernetes-csi sidecar clones. They are included to build/publish container images consumed by the Longhorn Helm chart as CSI driver dependencies.
+## 3. Dependency Hierarchy (Impact Map)
 
-**Repos:**
+Use this hierarchy to plan your changes. Modifications in lower layers REQUIRE updates in upper layers.
 
-- `csi-attacher/`
-- `csi-node-driver-registrar/`
-- `csi-provisioner/`
-- `csi-resizer/`
-- `csi-snapshotter/`
-- `livenessprobe/`
+* **Layer 1: Foundation (Lowest Level)**
+    * *Repos*: types, go-common-libs
+    * *Impact*: Affects Helpers, Core Engine, and Orchestration.
 
-**Policy:** **Minimal Patching Only**. No refactoring or mechanical formatting. Use repo-specific Makefiles, not Dapper scripts.
+* **Layer 2: Helpers**
+    * *Repos*: backupstore, go-iscsi-helper, go-spdk-helper, sparse-tools
+    * *Impact*: Affects Core Engine.
 
-### Integration / Packaging Repos
+* **Layer 3: Core Engine**
+    * *Repos*: longhorn-engine, longhorn-spdk-engine
+    * *Impact*: Affects Orchestration (Instance Manager).
 
-- `longhorn/` - Helm chart, deployment manifests, and design documents. See "CRD Generation and Helm Chart Workflow" section for operational steps.
-- `longhorn-tests/` - E2E tests (Python-based, not Go/Dapper).
+* **Layer 4: Orchestration (Highest Level)**
+    * *Repos*: longhorn-instance-manager -> longhorn-manager -> longhorn-share-manager
+    * *Impact*: Affects End User functionality.
 
-### Version Coordination
+* **Impact Example**:
+    - If you modify "repo/types" (Layer 1)...
+    - You MUST expect and plan for "go.mod" updates in "repo/longhorn-manager" and "repo/longhorn-engine".
 
-- `dep-versions/` - Central version coordination for external dependencies and CSI sidecars.
-- `versions.json` - Version source of truth for external libs and sidecars.
-- `version` - Current workspace version.
+---
 
-### Documents
+## 4. Special Engineering Workflows
 
-- `website`
+* **CRD and Helm Synchronization**
+    * *Trigger*: Changes to "repo/longhorn-manager/pkg/apis/..."
+    * *Action*: You MUST sync these changes to "repo/longhorn/" (the Helm chart repo).
+    * *Tool*: Use the "sync-crd-helm" skill if available, or request user guidance for manifest generation.
 
-### Dependency Hierarchy (Simplified)
-
-Changes in lower layers require validation in higher layers:
-
-```
-Foundation:    types/
-                 |
-               v
-Utilities:     go-common-libs/
-                 |
-      +----------+----------+
-      v          v          v
-Helpers:   backupstore/  go-iscsi-helper/  go-spdk-helper/  sparse-tools/
-                 |
-      +----------+----------+
-      v          v          v
-Components: longhorn-engine/  longhorn-spdk-engine/
-                 |
-               v
-Orchestration: longhorn-instance-manager/
-                 |
-               v
-Operator:      longhorn-manager/
-                 |
-               v
-Packaging:     longhorn/ (Helm chart + manifests)
-```
-
-## Build Systems
-
-**Dapper-based Repos (Native)**
-
-If a scripts/ directory exists, use the following entry points:
-
-- `make validate`: Runs linters and static analysis.
-- `make test:` Runs unit tests.
-- `make build:` Compiles binaries.
-
-Standard Makefile Repos (Upstream)
-
-Does not use `scripts/`. Follow each repo's specific Makefile or release-tools documentation.
-
-## Git Workflow & Safety
-
-### Default Branch Detection
-
-Branches may be named master or main. Always detect dynamically:
-
-```bash
-git symbolic-ref refs/remotes/upstream/HEAD | sed 's@^refs/remotes/upstream/@@'
-```
-
-### Branch Naming
-
-Must follow the @ticket/ specification: `${ticket_id}-${brief_description}`. Example: `10105-fix_volume_attach`.
-
-### Prohibited Git Actions
-
-- **NO** force-pushing to shared branches.
-- **NO** direct pushes to the upstream remote.
-- **NO** commit signing (handled by the human user).
-
-## Dependency Hygiene (Go Modules)
-
-- Local Replaces: replace directives pointing to other @repo/ paths are allowed only during local development.
-- Pre-submission Check: Before a PR is opened, agents MUST:
-    1. Remove all local replace directives.
-    2. Run go mod tidy to ensure go.mod and go.sum are clean.
-
-## ASCII-Only Enforcement
-
-As per the global workspace policy, every file within @repo/ MUST consist only of ASCII characters (0x00-0x7F).
-
-- **Incremental Validation**: To optimize Token usage and execution time, Agents MUST ONLY run the ascii-scanner skill on **modified or staged files** before committing.
-- **Trigger:** Run skill .opencode/skill/ascii-scanner after any code change, document writing, or report generation.
-- **Fixes:** Replace any Unicode symbols, smart quotes, or emojis with ASCII equivalents.
-
-## Special Workflows
-
-### CRD & Helm Chart Synchronization
-- **Trigger**: Any change to API definitions in `longhorn-manager/pkg/apis/`.
-- **Requirement**: Updates MUST be propagated to the `longhorn/` (packaging) repo.
-- **Action**: DO NOT perform manual copying. Use `sync-crd-helm` skill to ensure consistency.
+* **Version Coordination**
+    * *Source of Truth*: "repo/dep-versions/versions.json"
+    * *Usage*: When upgrading CSI sidecars or external dependencies, update this file to ensure CI consistency.

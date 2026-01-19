@@ -1,4 +1,4 @@
-# Ticket Management & Analysis Instructions
+# Ticket Management & Analysis Instructions (DRAFT update)
 
 **Status**: Workspace-local. DO NOT commit.
 **Scope**: All operations within the `ticket/` directory.
@@ -9,7 +9,7 @@
 
 All folders in `ticket/` MUST be normalized to `${org}-${ticket_id}-${description}`.
 
-### Mandatory Formatting Principles:
+**Mandatory Formatting Principles:**
 
 1. **Ticket ID Extraction**: The numeric identifier (`ticket_id`) is the anchor of the folder name.
 2. **Missing Organization**: If the folder name starts with a number (missing `org`), the `org` segment defaults to `unknown`.
@@ -25,67 +25,118 @@ All folders in `ticket/` MUST be normalized to `${org}-${ticket_id}-${descriptio
 ## 2. Internal Ticket Structure
 
 Maintain the following structure for all tickets:
+
 - `description.md`: Issue text and requirements.
 - `logs/`: Diagnostic data landing zone.
-    - `supportbundle*.zip`: Raw compressed bundle.
-    - `extracted/`: Unzipped bundle content.
+    - `[anyname].zip` or `[anyname].tar.*`: Raw compressed bundles from user, any name allowed. Do not rename.
+    - `extracted/`: Unpacked bundle content, must follow structured rules (see below).
 - `analysis_report.md`: Technical analysis report.
 - `repro/`: Reproduction resources.
+
+### logs/extracted/ Organization (REQUIRED)
+- Every archive file (zip, tar, etc) in `logs/` MUST be extracted into its own dedicated subdirectory in `logs/extracted/`, named after the archive file (without extension). Do NOT mix extracted content from multiple archives into one subfolder.
+- Example:
+    - `logs/support-prod-20260109.zip` → extract to `logs/extracted/support-prod-20260109/`
+    - `logs/cluster-20260110_foo_bundle.tar.gz` → extract to `logs/extracted/cluster-20260110_foo_bundle/`
+    - Always remove the archive file extension for the extract directory name.
+
+### Example Directory Tree
+```
+ticket/org-10422-description/
+  description.md
+  logs/
+    prod-bundle-20260109.zip
+    old-prod-20260101.zip
+    extracted/
+      prod-bundle-20260109/
+        resources/
+        events/
+      old-prod-20260101/
+        ...
+  analysis_report.md
+  repro/
+```
+
+- Never store logs, bundle, or extracted content at the ticket root.
+- Never extract anything directly into `logs/` or `logs/extracted/` without its own subfolder.
+- Never merge content from separate bundles into the same extract folder.
 
 ---
 
 ## 3. Standard Ticket Analysis Workflow
 
-### Step 1: Mandatory Sanitization
+### Step 1: Folder Sanitization
 Before any analysis, run the sanitizer to normalize all ticket folders.
-- **Invoke Skill**: Load `.opencode/skill/ticket-sanitizer/SKILL.md`.
+- **Invoke Skill**: `.opencode/skill/ticket-sanitizer/SKILL.md`
 
 ### Step 2: Support Bundle Processing
-If any `supportbundle*.zip` exists in `logs/` or is referenced in `description.md`:
-1. **Invoke Skill**: Load `.opencode/skill/support-bundle-analysis/SKILL.md`.
-2. **Action**: Extract data into `logs/extracted/` and proceed with multi-layer diagnosis (Pod, Node, Storage, Network).
+If there are any compressed bundles in `logs/` or referenced in `description.md`:
+1. **Invoke Skill**: `.opencode/skill/support-bundle-analysis/SKILL.md`
+2. **Action**: For every compressed bundle, extract to `logs/extracted/[archive_name_no_ext]/` strictly. Proceed with multi-layer diagnosis (Pod, Node, Storage, Network) referencing only within their respective extract directory.
 
 ### Step 3: Architecture & Code Alignment
+- Always use skills like `repo-navigator` or `interaction-mapper` to anchor affected CRDs, controllers, and services before deep diving code.
+- Perform root cause analysis using both `description.md` and extracted logs.
+- Leverage specialized agents (librarian, explore) to focus on relevant areas.
+- You MAY add a `notes.md` file at the ticket root to document analytical steps, interim findings, and reasoning during the investigation (optional, but RECOMMENDED for large, complex, or multi-phase tickets). For suggested structure and usage, see Section 5: "Analytical Notes (Best Practice)".
 
-Note: All architecture navigation (such as repo-navigator/interaction-mapper skill) is a workspace-wide engineering investigation standard. You should always apply this approach first during incident investigation, design, refactor, and debugging. See detailed guidelines and examples in the workspace root AGENTS.md.
 
-1. **Root Cause Analysis**: Analyze the problem based on `description.md` and extracted logs to identify the failure point.
-
-2. **Architectural Anchoring**:
-   - **Primary Action**: Invoke the `repo-navigator` skill to map architectural relationships (CRDs, controllers, or service clients) related to the issue.
-   - **Goal**: Establish technical context before diving into implementation details.
-
-3. **Expert-Led Investigation**:
-   - **Policy**: Prioritize collaboration over broad code scanning. Leverage specialized agents (e.g., `librarian` for definitions, `explore` for call-chains) to narrow down relevant areas.
-   - **Efficiency**: Use agent-provided entry points to focus your direct code reading, minimizing unnecessary context bloating.
-
-### Step 4: Analysis Report Generation
-
-- **Action**: Synthesize findings into `analysis_report.md`.
-- **Constraint**: You MUST strictly follow the **Evidence-Based Analysis** format defined in Section 4.
-- **Persistence**: This report serves as the authoritative context for the subsequent "Coding/Fixing" phase.
+### Step 4: Documentation
+- Synthesize findings into `analysis_report.md`.
+- Follow the EVIDENCE-BASED ANALYSIS FORMAT below strictly.
+- Attach only paths inside `logs/` or `logs/extracted/[archive]/` for any evidence reference.
+- This report is used for any fix/coding action.
 
 ---
 
 ## 4. Evidence-Based Analysis Format
 
-All `analysis_report.md` files MUST adhere to the following structure:
+All `analysis_report.md` MUST follow this structure:
 
 ### I. Core Diagnostic Results
-1. **Finding**: A clear statement of the identified anomaly or root cause.
-2. **Evidence**: Direct references to specific log lines, code paths, or behavioral spec violations.
-3. **Correlation**: A logical explanation of how the evidence leads to the finding.
-4. **Conclusion**: The definitive technical summary.
+1. **Finding**: Clear statement of the anomaly or root cause.
+2. **Evidence**: Direct references to log lines, code paths, or spec violations, using relative file paths under the correct extract folder.
+3. **Correlation**: Explanation of how the evidence justifies the finding.
+4. **Conclusion**: Technical summary.
 
 ### II. Post-Investigation Insights (Strategic)
-**The Agent must provide the following forward-looking perspectives:**
+- **Unresolved Doubts & Risks**: Note unexplained anomalies or missing data.
+- **Recommended Next Steps**: Suggest further traces, monitoring, log improvements where needed.
+- **Implementation Improvements**: (If confident) highlight specific logic/code patterns for improvement.
 
-- **Unresolved Doubts & Risks**:
-    - List any unexplained anomalies or lingering questions discovered during the investigation.
-    - Highlight potential side effects or areas where data was insufficient for full certainty.
-- **Recommended Next Steps**:
-    - Suggest specific areas for further tracing or monitoring if the issue persists or recurs.
-    - Propose additional data collection needs (e.g., "Add trace-level logging to the engine state machine").
-- **Implementation Improvements**:
-    - If you have **high confidence**, identify specific code segments or logic patterns that could be refactored or improved to prevent similar issues.
-    - Focus on enhancing system resilience, readability, or architectural alignment.
+---
+
+## 5. Analytical Notes (Best Practice)
+
+- Use notes.md to record steps, reasoning, hypotheses, findings and cross-reference paths under logs/ or logs/extracted/.
+- Template (if present):
+```
+## Summary
+<short summary>
+
+## Steps
+<analysis stages ("extracted logs/cluster-prod-bundle.zip to logs/extracted/cluster-prod-bundle")>
+
+## Findings
+<events, facts from logs/extracted/[bundle]/...>
+
+## Reasoning
+<your logic/analysis>
+
+## Recommendations
+<future actions, follow-up investigation>
+```
+- Update the file as the investigation progresses.
+- Every agent MUST append or update their own analytics for each significant step.
+- All citations MUST use relative paths only, never absolute or OS-specific paths.
+
+---
+
+## 6. Forbidden Patterns
+- Do not put logs, bundles, or any extracted content at the ticket root.
+- Do not merge data from multiple compressed bundles into one extract directory.
+- Do not create extract/, extracted/, output/, etc at the ticket root or directly underneath logs/.
+- Do not rename user-provided bundle files except for technical/legal requirements.
+
+---
+
