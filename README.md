@@ -1,10 +1,32 @@
 # Longhorn Multi-Repository Workspace
 
-A comprehensive development workspace for the Longhorn distributed block storage system for Kubernetes.
+A comprehensive development workspace for the Longhorn distributed block storage system for Kubernetes, designed for development with **OpenCode plus Oh-My-OpenCode agents**.
 
 ## Overview
 
 This workspace provides a unified environment for developing across Longhorn's multiple repositories. Longhorn is a lightweight, reliable, and powerful distributed block storage system designed for Kubernetes.
+
+The workspace integrates AI-powered development tools through OpenCode and Oh-My-OpenCode, providing intelligent assistance for code navigation, repository initialization, build system management, and more.
+
+## Workspace Architecture
+
+This workspace is built on two key technologies:
+
+### OpenCode
+A VS Code extension that enables AI-powered development assistance directly in your IDE, providing context-aware code suggestions and automated workflows.
+
+### Oh-My-OpenCode Agents
+A collection of specialized AI skills that automate common Longhorn development tasks:
+
+- **repo-init**: Automatically clones all Longhorn repositories with proper upstream configuration
+- **interaction-mapper**: Generates architectural maps of component interactions
+- **repo-navigator**: Intelligent code navigation across multiple repositories
+- **longhorn-build-system**: Build system expertise for Dapper-based and other toolchains
+- **sync-crd-helm**: Synchronizes CRD definitions with Helm charts
+- **ascii-scanner**: Enforces ASCII-only policy across the codebase
+- **ticket-sanitizer**: Validates and sanitizes ticket information
+- **support-bundle-analysis**: Analyzes Longhorn support bundles for diagnostics
+- **longhorn-user-docs**: Assists with user documentation
 
 ### What is Longhorn?
 
@@ -70,6 +92,14 @@ Repositories are organized under the `repo/` directory by category:
 
 ### Prerequisites
 
+#### Required Toolchain
+
+**For OpenCode + Oh-My-OpenCode:**
+- Visual Studio Code
+- OpenCode extension (AI-powered development assistant)
+- Oh-My-OpenCode skills (included in `.opencode/skill/`)
+
+**For Longhorn Development:**
 - Git
 - Docker (for Dapper-based builds)
 - Go 1.20+ (for native Go development)
@@ -78,7 +108,28 @@ Repositories are organized under the `repo/` directory by category:
 - Make
 - Helm (for chart validation)
 
-### Initial Setup
+### Quick Start with AI Agent
+
+The fastest way to initialize the workspace is using the AI agent:
+
+**Initialization Prompt:**
+```
+init workspace
+```
+
+When you provide this prompt to the OpenCode AI agent:
+1. The agent automatically invokes the `repo-init` skill
+2. All repositories from `repo/repo-list` are cloned into the `repo/` directory
+3. Each repository is configured with:
+   - `upstream` remote pointing to the official Longhorn repository
+   - Local `upstream` branch tracking the upstream default branch (main or master)
+4. The agent then invokes `interaction-mapper` to generate architectural indices
+
+**Note:** The `repo-init` skill only sets up upstream remotes. You are responsible for managing your personal fork configuration if you plan to contribute code.
+
+### Manual Setup (Alternative)
+
+If you prefer manual setup or need to configure personal forks:
 
 1. **Clone the workspace repository**:
    ```bash
@@ -86,22 +137,35 @@ Repositories are organized under the `repo/` directory by category:
    cd longhorn-workspace
    ```
 
-2. **Initialize repositories**:
-   The workspace uses a `repo/repo-list` file as the source of truth for required repositories. You'll need to clone the repositories listed there into the `repo/` directory.
+2. **Initialize repositories** (choose one method):
 
-3. **Configure Git remotes**:
-   For each repository you plan to contribute to:
+   **Option A: Using repo-init skill** (Recommended)
+   ```bash
+   bash .opencode/skill/repo-init/repo_init.sh
+   ```
+   This automatically clones all repositories with upstream configuration.
+
+   **Option B: Manual cloning**
+   Clone repositories listed in `repo/repo-list` manually into the `repo/` directory.
+
+3. **Configure personal fork** (Optional - for contributors):
+   The `repo-init` skill only sets up upstream remotes. To add your personal fork:
    ```bash
    cd repo/[repo-name]
-   
-   # Add upstream (canonical Longhorn repository)
-   git remote add upstream https://github.com/longhorn/[repo-name]
    
    # Add origin (your personal fork)
    git remote add origin https://github.com/[your-account]/[repo-name]
    
    # Verify configuration
    git remote -v
+   ```
+
+   Expected output:
+   ```
+   origin    https://github.com/[your-account]/[repo-name] (fetch)
+   origin    https://github.com/[your-account]/[repo-name] (push)
+   upstream  https://github.com/longhorn/[repo-name] (fetch)
+   upstream  https://github.com/longhorn/[repo-name] (push)
    ```
 
 ## Development Workflow
