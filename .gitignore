@@ -1,0 +1,15 @@
+repo/*
+!repo/AGENTS.md
+!repo/repo-list
+ticket/*
+!ticket/AGENTS.md
+context/indices/*
+!context/indices/.placeholder
+
+# OpenCode
+.opencode/*
+!.opencode/skill/
+!.opencode/skill/**
+
+# OpenSpec
+openspec
