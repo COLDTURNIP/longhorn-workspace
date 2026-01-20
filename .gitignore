@@ -10,6 +10,8 @@ context/indices/*
 .opencode/*
 !.opencode/skill/
 !.opencode/skill/**
+!.opencode/agents/
+!.opencode/agents/**
 
 # OpenSpec
 openspec

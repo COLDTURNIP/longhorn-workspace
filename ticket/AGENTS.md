@@ -95,13 +95,20 @@ All `analysis_report.md` MUST follow this structure:
 
 ### I. Core Diagnostic Results
 1. **Finding**: Clear statement of the anomaly or root cause.
-2. **Evidence**: Direct references to log lines, code paths, or spec violations, using relative file paths under the correct extract folder.
+2. **Evidence**: Direct references to log lines, code paths, function name, partial code blocks, pseudo-code, or spec violations, using relative file paths under the correct extract folder.
 3. **Correlation**: Explanation of how the evidence justifies the finding.
 4. **Conclusion**: Technical summary.
 
 ### II. Post-Investigation Insights (Strategic)
 - **Unresolved Doubts & Risks**: Note unexplained anomalies or missing data.
 - **Recommended Next Steps**: Suggest further traces, monitoring, log improvements where needed.
+    - **Modification Proposal (NO CODE EDITING)**:
+        * Describe the recommended logic change.
+        * *Optional*: Provide **Pseudo-code** or a "Diff concept" describing the fix (e.g., "Add a check for `nil` before accessing `v.Status`").
+        * *Constraint*: Do not write the actual Go code patch; describe the *intent*.
+    - **Investigation Plan (If Incomplete)**:
+        * List specific missing pieces of evidence.
+        * Provide copy-pasteable commands for the user to gather this info.
 - **Implementation Improvements**: (If confident) highlight specific logic/code patterns for improvement.
 
 ---

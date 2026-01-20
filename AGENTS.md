@@ -163,7 +163,7 @@ ONLY in code that requires absolute paths at runtime:
 
 ---
 
-## English ASCII-Only Enforcement (Entire Workspace)
+## English ASCII-Only Writing Enforcement (Entire Workspace)
 
 **MANDATORY**: All files in this workspace MUST be written in English using ONLY ASCII characters (0x00-0x7F).
 
