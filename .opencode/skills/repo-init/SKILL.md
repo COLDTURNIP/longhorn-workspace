@@ -8,7 +8,7 @@ No personal fork (origin remote) is configured.
 ## Usage
 
 ```bash
-bash .opencode/skill/repo-init/repo_init.sh
+bash .opencode/skills/repo-init/repo_init.sh
 ```
 
 ## Process Details

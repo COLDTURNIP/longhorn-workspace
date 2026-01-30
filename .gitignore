@@ -8,8 +8,8 @@ context/indices/*
 
 # OpenCode
 .opencode/*
-!.opencode/skill/
-!.opencode/skill/**
+!.opencode/skills/
+!.opencode/skills/**
 !.opencode/agents/
 !.opencode/agents/**
 .sisyphus

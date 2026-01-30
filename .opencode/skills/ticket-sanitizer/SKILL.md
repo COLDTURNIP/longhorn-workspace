@@ -26,7 +26,7 @@ This skill enforces the standardized naming convention for ticket folders and pr
 Run from the workspace root:
 
 ```bash
-bash .opencode/skill/ticket-sanitizer/ticket_sanitizer.sh
+bash .opencode/skills/ticket-sanitizer/ticket_sanitizer.sh
 ```
 
 ## Expected Outcomes

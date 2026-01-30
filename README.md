@@ -32,7 +32,7 @@ workspace-root/
   README.md                     (this file)
   AGENTS.md                     (AI agent instructions - not for commit)
   .opencode/                    (local development state)
-    skill/                      (Oh-My-OpenCode AI skills)
+    skills/                     (AI skills)
       repo-init/                (Repository initialization)
       interaction-mapper/       (Architectural mapping)
       repo-navigator/           (Code navigation)
@@ -101,7 +101,7 @@ git clone https://github.com/your-account/longhorn-workspace.git
 cd longhorn-workspace
 
 # Initialize repositories using the repo-init skill
-bash .opencode/skill/repo-init/repo_init.sh
+bash .opencode/skills/repo-init/repo_init.sh
 ```
 
 To add your personal fork to a repository:
@@ -112,7 +112,7 @@ git remote add origin https://github.com/[your-account]/[repo-name]
 
 ## Working with OpenCode Skills
 
-The workspace includes specialized AI skills under `.opencode/skill/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
+The workspace includes specialized AI skills under `.opencode/skills/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
 
 ### Available Skills
 
@@ -156,7 +156,7 @@ The workspace includes specialized AI skills under `.opencode/skill/` that autom
 3. **Multiple skills**: The agent can chain multiple skills
    - Example: "init workspace and analyze the architecture" will use repo-init and interaction-mapper
 
-4. **Skill documentation**: Each skill has documentation in `.opencode/skill/[skill-name]/SKILL.md`
+4. **Skill documentation**: Each skill has documentation in `.opencode/skills/[skill-name]/SKILL.md`
    - Example: "show me the repo-init skill documentation"
 
 ## Additional Resources

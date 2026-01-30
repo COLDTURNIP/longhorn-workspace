@@ -23,7 +23,7 @@ This skill automates the synchronization between `longhorn-manager` (the API sou
 Execute from workspace root:
 
 ```bash
-bash .opencode/skill/sync-crd-helm/sync_crd_helm.sh
+bash .opencode/skills/sync-crd-helm/sync_crd_helm.sh
 ```
 
 ## The 3-Stage Logic (Internal Detail)

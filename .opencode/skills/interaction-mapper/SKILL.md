@@ -21,7 +21,7 @@ While LSP handles code-level symbols, this skill indexes the "glue" of Longhorn'
 ## Usage
 Run from workspace root:
 ```bash
-bash .opencode/skill/interaction-mapper/map_interactions.sh
+bash .opencode/skills/interaction-mapper/map_interactions.sh
 ```
 
 ## Expected Outcomes

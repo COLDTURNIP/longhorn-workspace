@@ -11,7 +11,7 @@ As of 2026-01-16, this skill has been restructured into three focused modules:
 ### Module Files
 
 ```
-.opencode/skill/support-bundle-analysis/
+.opencode/skills/support-bundle-analysis/
   SKILL.md               (Entrypoint, ~150 lines)
   diagnostic-flows.md    (Technical Module, ~400 lines)
   patterns-library.md    (Knowledge Base, ~350 lines)

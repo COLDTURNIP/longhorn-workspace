@@ -4,7 +4,7 @@
 
 set -e
 
-SKILL_DIR=".opencode/skill/support-bundle-analysis"
+SKILL_DIR=".opencode/skills/support-bundle-analysis"
 PASSED=0
 FAILED=0
 

@@ -67,11 +67,11 @@ ticket/org-10422-description/
 
 ### Step 1: Folder Sanitization
 Before any analysis, run the sanitizer to normalize all ticket folders.
-- **Invoke Skill**: `.opencode/skill/ticket-sanitizer/SKILL.md`
+- **Invoke Skill**: `.opencode/skills/ticket-sanitizer/SKILL.md`
 
 ### Step 2: Support Bundle Processing
 If there are any compressed bundles in `logs/` or referenced in `description.md`:
-1. **Invoke Skill**: `.opencode/skill/support-bundle-analysis/SKILL.md`
+1. **Invoke Skill**: `.opencode/skills/support-bundle-analysis/SKILL.md`
 2. **Action**: For every compressed bundle, extract to `logs/extracted/[archive_name_no_ext]/` strictly. Proceed with multi-layer diagnosis (Pod, Node, Storage, Network) referencing only within their respective extract directory.
 
 ### Step 3: Architecture & Code Alignment

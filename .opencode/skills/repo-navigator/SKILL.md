@@ -25,7 +25,7 @@ When asked "Where is the logic for X?", follow this hierarchy:
 Run the helper script to query indices:
 ```bash
 # Find controller for a CRD
-bash .opencode/skill/repo-navigator/repo_navigator.sh --crd Volume
+bash .opencode/skills/repo-navigator/repo_navigator.sh --crd Volume
 
 # Find topology for a gRPC Service
-bash .opencode/skill/repo-navigator/repo_navigator.sh --rpc InstanceServiceClient
+bash .opencode/skills/repo-navigator/repo_navigator.sh --rpc InstanceServiceClient

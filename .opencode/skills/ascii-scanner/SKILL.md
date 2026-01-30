@@ -23,10 +23,10 @@ Execute from the workspace root. To maximize efficiency, **avoid scanning the en
 
 ```bash
 # Scan specific modified files (e.g., using git status/diff)
-bash .opencode/skill/ascii-scanner/ascii_scanner.sh <file_path_1> <file_path_2>
+bash .opencode/skills/ascii-scanner/ascii_scanner.sh <file_path_1> <file_path_2>
 
 # Recommended: Scan only staged files in a repo
-git -C repo/longhorn-manager diff --cached --name-only | xargs -I {} bash .opencode/skill/ascii-scanner/ascii_scanner.sh repo/longhorn-manager/{}
+git -C repo/longhorn-manager diff --cached --name-only | xargs -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh repo/longhorn-manager/{}
 ```
 
 ## Expected Outcomes
