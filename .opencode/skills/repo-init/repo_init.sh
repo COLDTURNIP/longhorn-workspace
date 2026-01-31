@@ -38,6 +38,33 @@ if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
 fi
 defensive_record_safety_ref
 
+detect_upstream_default_branch() {
+    local repo_label=$1 branch=""
+
+    branch=$(git remote show upstream 2>/dev/null | awk '/HEAD branch/ {print $5}') || true
+    if [ -n "$branch" ]; then
+        echo "$branch"
+        return 0
+    fi
+
+    warn "Unable to read upstream HEAD via 'git remote show'; trying git remote set-head --auto" >&2
+    if git remote set-head upstream --auto >/dev/null 2>&1; then
+        branch=$(git remote show upstream 2>/dev/null | awk '/HEAD branch/ {print $5}') || true
+        if [ -n "$branch" ]; then
+            echo "$branch"
+            return 0
+        fi
+    fi
+
+    branch=$(git ls-remote --symref upstream HEAD 2>/dev/null | awk '/^ref:/ {print $2}' | sed 's@refs/heads/@@') || true
+    if [ -n "$branch" ]; then
+        echo "$branch"
+        return 0
+    fi
+
+    die "Unable to determine upstream default branch for ${repo_label:-repository}; set it manually with 'git remote set-head upstream --auto'"
+}
+
 if [ ! -f "$REPO_LIST" ]; then
     die "$REPO_LIST not found. Run repo-init from workspace root."
 fi
@@ -74,12 +101,13 @@ while IFS= read -r ENTRY || [ -n "$ENTRY" ]; do
     else
         (
             cd "$TARGET_PATH"
-            MAIN_BRANCH=$(git remote show upstream | grep 'HEAD branch' | awk '{print $5}')
+            MAIN_BRANCH=$(detect_upstream_default_branch "$ENTRY")
             info "Detected upstream default branch: $MAIN_BRANCH"
+            git remote set-head upstream "$MAIN_BRANCH" >/dev/null 2>&1 || warn "Unable to set upstream HEAD explicitly for $ENTRY"
             defensive_run_cmd "git switch -c upstream \"upstream/$MAIN_BRANCH\""
 
             defensive_require_force "delete extra local branches in $TARGET_PATH"
-            for branch in $(git branch --format='%(refname:short)'); do
+            for branch in $(git branch --format='%(refname:short)' | sed 's#.*/##'); do
                 if [ "$branch" != "upstream" ]; then
                     defensive_run_cmd "git branch -D \"$branch\""
                 fi
