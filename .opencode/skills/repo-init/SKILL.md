@@ -1,3 +1,12 @@
+---
+name: repo-init
+description: Clones every upstream Longhorn repository from repo/repo-list and prepares tracking upstream branches without configuring personal forks.
+compatibility: opencode
+metadata:
+  version: "1.0"
+  tags: ["initialization", "workspace", "repos"]
+---
+
 # Skill: repo-init
 
 ## Purpose
