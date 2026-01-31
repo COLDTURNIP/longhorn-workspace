@@ -1,0 +1,63 @@
+# Skill: verify-setup
+
+## Purpose
+
+This skill validates a Longhorn developer workspace after initialization. It checks toolchain readiness (Go version, Docker daemon, Dapper/make availability), git remote configuration, and workspace hygiene before development begins.
+
+## Usage
+
+```bash
+bash .opencode/skills/verify-setup/verify_setup.sh [options]
+```
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--execute` | Run checks and perform commands (default) |
+| `--dry-run` | Describe planned checks without executing |
+| `--json-log` | Emit JSON log entries (useful for automation) |
+| `--no-color` | Disable ANSI colors |
+| `--force` | Reserved (no effect; included for interface consistency) |
+| `-h`, `--help` | Show help message |
+
+## Checks Performed
+
+1. **Go toolchain**
+   - Verifies `go` binary exists and prints version (expects Go ≥ 1.21; configurable via env `MIN_GO_VERSION`).
+2. **Docker daemon**
+   - Runs `docker info` to ensure Docker daemon is reachable.
+3. **Dapper/make**
+   - Verifies `make` is available (required for Dapper builds) and warns if `dapper` binary is missing.
+4. **Git remotes**
+   - Ensures an `upstream` remote exists and `git symbolic-ref refs/remotes/upstream/HEAD` succeeds (detects default branch).
+   - Warns if `origin` remote is missing (since PRs push to `origin`).
+5. **Workspace cleanliness**
+   - Fails if the workspace has uncommitted changes (`git status --porcelain`), unless `SKIP_CLEAN_CHECK=true` is set.
+6. **Optional PATH sanity**
+   - Warns if `$GOPATH/bin` is not in PATH when Go is installed.
+
+## Output
+
+- Logs are emitted via the shared defensive prelude (ISO timestamps, optional JSON).
+- Exit codes: `0` success, `2` argument errors, `3` environment/tooling issues.
+- On failure, the script prints remediation guidance (e.g., instructions to install Docker or configure `upstream`).
+
+## Example
+
+```bash
+# Standard run (default is execute)
+bash .opencode/skills/verify-setup/verify_setup.sh
+
+# Dry-run preview
+bash .opencode/skills/verify-setup/verify_setup.sh --dry-run
+
+# JSON logs for automation
+bash .opencode/skills/verify-setup/verify_setup.sh --json-log > verify.log
+```
+
+## Notes
+
+- Requires the shared `.opencode/skills/lib/defensive_prelude.sh`.
+- Does not modify any files unless future enhancements require caching.
+- Intended to run before major plan execution (e.g., immediately after `repo-init`).

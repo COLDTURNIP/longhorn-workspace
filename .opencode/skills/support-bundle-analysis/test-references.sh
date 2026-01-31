@@ -1,125 +1,137 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Reference Validation Test for Support Bundle Analysis Skill
-# Tests all cross-module references and anchors
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
+
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options]
+Validate cross-module references and anchors for support-bundle-analysis skill.
+Options: --execute (default), --dry-run, --json-log, --no-color, --force (unused), -h/--help
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+if [ "$#" -gt 0 ]; then
+  error "This script does not take positional arguments"
+  defensive_show_help
+  exit "$EXIT_ARG"
+fi
+
+if [ "$DRY_RUN" = true ]; then
+  info "[DRY-RUN] Would validate references in support-bundle-analysis skill"
+  exit "$EXIT_OK"
+fi
 
 SKILL_DIR=".opencode/skills/support-bundle-analysis"
 PASSED=0
 FAILED=0
 
-echo "=== Reference Validation Test ==="
-echo ""
+info "=== Reference Validation Test ==="
 
-# Test 1: Check all file references exist
 echo "Test 1: File References"
 for file in SKILL.md diagnostic-flows.md patterns-library.md; do
     if [ -f "$SKILL_DIR/$file" ]; then
-        echo "  [PASS] $file exists"
+        info "  [PASS] $file exists"
         ((PASSED++))
     else
-        echo "  [FAIL] $file does NOT exist"
+        error "  [FAIL] $file does NOT exist"
         ((FAILED++))
     fi
 done
 echo ""
 
-# Test 2: Check anchor points in diagnostic-flows.md
 echo "Test 2: diagnostic-flows.md Anchors"
 ANCHORS=("pod-diagnosis" "node-diagnosis" "storage-diagnosis" "network-diagnosis" "pod-quick-scan" "node-quick-scan" "storage-quick-scan" "network-quick-scan")
 for anchor in "${ANCHORS[@]}"; do
     if grep -q "{#$anchor}" "$SKILL_DIR/diagnostic-flows.md"; then
-        echo "  [PASS] Anchor #$anchor exists"
+        info "  [PASS] Anchor #$anchor exists"
         ((PASSED++))
     else
-        echo "  [FAIL] Anchor #$anchor NOT found"
+        error "  [FAIL] Anchor #$anchor NOT found"
         ((FAILED++))
     fi
 done
 echo ""
 
-# Test 3: Check anchor points in patterns-library.md
 echo "Test 3: patterns-library.md Anchors"
 ANCHORS=("timeline-reconstruction" "5-whys-method" "evidence-based-analysis" "patterns-library" "examples" "example-1" "example-2" "quick-reference")
 for anchor in "${ANCHORS[@]}"; do
     if grep -q "{#$anchor}" "$SKILL_DIR/patterns-library.md"; then
-        echo "  [PASS] Anchor #$anchor exists"
+        info "  [PASS] Anchor #$anchor exists"
         ((PASSED++))
     else
-        echo "  [FAIL] Anchor #$anchor NOT found"
+        error "  [FAIL] Anchor #$anchor NOT found"
         ((FAILED++))
     fi
 done
 echo ""
 
-# Test 4: Check all references in SKILL.md
 echo "Test 4: References in SKILL.md"
 if grep -q "@diagnostic-flows.md" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] References to @diagnostic-flows.md found"
+    info "  [PASS] References to @diagnostic-flows.md found"
     ((PASSED++))
 else
-    echo "  [FAIL] No references to @diagnostic-flows.md"
+    error "  [FAIL] No references to @diagnostic-flows.md"
     ((FAILED++))
 fi
 
 if grep -q "@patterns-library.md" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] References to @patterns-library.md found"
+    info "  [PASS] References to @patterns-library.md found"
     ((PASSED++))
 else
-    echo "  [FAIL] No references to @patterns-library.md"
+    error "  [FAIL] No references to @patterns-library.md"
     ((FAILED++))
 fi
 echo ""
 
-# Test 5: Check XML tags are well-formed
 echo "Test 5: XML Tags Validation"
 if grep -q "<mandatory_requirements>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</mandatory_requirements>" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] <mandatory_requirements> tag properly closed"
+    info "  [PASS] <mandatory_requirements> tag properly closed"
     ((PASSED++))
 else
-    echo "  [FAIL] <mandatory_requirements> tag not properly closed"
+    error "  [FAIL] <mandatory_requirements> tag not properly closed"
     ((FAILED++))
 fi
 
 if grep -q "<confirmation_1>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</confirmation_1>" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] <confirmation_1> tag properly closed"
+    info "  [PASS] <confirmation_1> tag properly closed"
     ((PASSED++))
 else
-    echo "  [FAIL] <confirmation_1> tag not properly closed"
+    error "  [FAIL] <confirmation_1> tag not properly closed"
     ((FAILED++))
 fi
 
 if grep -q "<confirmation_2>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</confirmation_2>" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] <confirmation_2> tag properly closed"
+    info "  [PASS] <confirmation_2> tag properly closed"
     ((PASSED++))
 else
-    echo "  [FAIL] <confirmation_2> tag not properly closed"
+    error "  [FAIL] <confirmation_2> tag not properly closed"
     ((FAILED++))
 fi
 
 if grep -q "<problem_classification>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</problem_classification>" "$SKILL_DIR/SKILL.md"; then
-    echo "  [PASS] <problem_classification> tag properly closed"
+    info "  [PASS] <problem_classification> tag properly closed"
     ((PASSED++))
 else
-    echo "  [FAIL] <problem_classification> tag not properly closed"
+    error "  [FAIL] <problem_classification> tag not properly closed"
     ((FAILED++))
 fi
 echo ""
 
-# Summary
-echo "=== Test Summary ==="
-echo "PASSED: $PASSED"
-echo "FAILED: $FAILED"
-echo ""
+info "=== Test Summary ==="
+info "PASSED: $PASSED"
+info "FAILED: $FAILED"
 
 if [ $FAILED -eq 0 ]; then
-    echo "All tests PASSED!"
-    exit 0
+    info "All tests PASSED!"
+    exit "$EXIT_OK"
 else
-    echo "Some tests FAILED!"
-    exit 1
+    die "Some tests FAILED!"
 fi

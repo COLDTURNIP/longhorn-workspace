@@ -1,29 +1,47 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ascii_scanner.sh - Force ASCII-only compliance check.
 # Target: 0x00-0x7F range only.
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
 
-TARGET=$1
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options] <target_path>
 
-if [ -z "$TARGET" ]; then
-    echo "[USAGE] bash $0 <target_path>"
-    exit 1
+Scan files/dirs for non-ASCII bytes (0x00-0x7F allowed).
+
+Options:
+  --execute           Run scan (default)
+  --dry-run           Describe scan target and exit
+  --json-log          Emit JSON logs
+  --no-color          Disable ANSI color (not used)
+  --force             Unused (kept for interface parity)
+  -h, --help          Show help
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+
+if [ "$#" -lt 1 ]; then
+    error "Target path required"
+    defensive_show_help
+    exit "$EXIT_ARG"
 fi
 
-# Clean @ prefix if provided by AI
-TARGET=${TARGET#@}
+TARGET=${1#@}
+
+if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] Would scan target: $TARGET"
+    exit "$EXIT_OK"
+fi
 
 if [ ! -e "$TARGET" ]; then
-    echo "[ERROR] Target path does not exist: $TARGET"
-    exit 1
+    die "Target path does not exist: $TARGET"
 fi
 
-echo "[INFO] Scanning for non-ASCII characters in: $TARGET"
-
-# Use grep to find characters outside the 00-7F range
-# -n: Line number, -r: Recursive, -P: Perl regex, -I: Ignore binaries
-# LC_ALL=C ensures grep treats files as byte sequences
+info "[INFO] Scanning for non-ASCII characters in: $TARGET"
 FOUND_VIOLATIONS=$(LC_ALL=C grep -rnP '[^\x00-\x7f]' "$TARGET" --exclude-dir=".git" || true)
 
 if [ -n "$FOUND_VIOLATIONS" ]; then
@@ -31,9 +49,8 @@ if [ -n "$FOUND_VIOLATIONS" ]; then
     echo "[VIOLATION DETECTED] Non-ASCII characters found:"
     echo "$FOUND_VIOLATIONS"
     echo "------------------------------------------------------------"
-    echo "[ERROR] Compliance check failed. Please remove non-ASCII characters (emojis, smart quotes, etc.)."
-    exit 1
+    die "Compliance check failed. Remove non-ASCII characters."
 else
-    echo "[SUCCESS] ASCII compliance check passed for: $TARGET"
-    exit 0
+    info "[SUCCESS] ASCII compliance check passed for: $TARGET"
+    exit "$EXIT_OK"
 fi

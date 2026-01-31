@@ -22,7 +22,7 @@ When asked "Where is the logic for X?", follow this hierarchy:
 3. **LSP Exploration**: Once the file is found, use LSP `find-definition` or `find-references` on key symbols like `syncHandler` or `Reconcile`.
 
 ## Usage
-Run the helper script to query indices:
+Run the helper script to query indices (uses defensive prelude: default dry-run, `--execute` to run, `--json-log`, `--no-color`, `--force` unused):
 ```bash
 # Find controller for a CRD
 bash .opencode/skills/repo-navigator/repo_navigator.sh --crd Volume

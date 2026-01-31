@@ -1,33 +1,87 @@
-#!/bin/bash
-# sync_crd_helm.sh - One-stop shop for CRD generation and Helm sync
-# MUST be run from the workspace root.
+#!/usr/bin/env bash
+# sync_crd_helm.sh - One-stop shop for CRD generation and Helm sync (workspace root)
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
 
-# Define relative paths
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options]
+
+Regenerate CRDs in repo/longhorn-manager, copy them into repo/longhorn chart templates, and regenerate manifests.
+
+Options:
+  --execute           Run make/cp/bash commands (default dry-run)
+  --force             Permit overwriting Helm chart CRDs
+  --json-log          Emit JSON log lines
+  --no-color          Disable ANSI color output
+  -n, --dry-run       Dry-run mode (default)
+  -h, --help          Show this help message
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+if [ "$#" -gt 0 ]; then
+  error "sync-crd-helm does not accept positional arguments"
+  defensive_show_help
+  exit "$EXIT_ARG"
+fi
+
 REPO_MANAGER="repo/longhorn-manager"
 REPO_HELM="repo/longhorn"
 
-echo "[1/3] Stage 1: Generating CRDs in ${REPO_MANAGER}..."
-cd "${REPO_MANAGER}"
-make generate  # Executes controller-gen and code-generator
-cd - > /dev/null
+defensive_require_clean_tree
+defensive_require_upstream_head
+defensive_record_safety_ref
 
-echo "[2/3] Stage 2: Syncing CRDs to ${REPO_HELM}..."
-# Ensure destination directory exists
-mkdir -p "${REPO_HELM}/chart/templates"
-cp "${REPO_MANAGER}/k8s/crds.yaml" "${REPO_HELM}/chart/templates/crds.yaml"
+stage_generate() {
+  if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] (cd $REPO_MANAGER && make generate)"
+  else
+    defensive_run_cmd "(cd \"$REPO_MANAGER\" && make generate)"
+  fi
+}
 
-echo "[3/3] Stage 3: Generating final manifests in ${REPO_HELM}..."
-cd "${REPO_HELM}"
-bash ./scripts/generate-longhorn-yaml.sh
-cd - > /dev/null
+stage_sync() {
+  if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] mkdir -p $REPO_HELM/chart/templates"
+    info "[DRY-RUN] cp $REPO_MANAGER/k8s/crds.yaml $REPO_HELM/chart/templates/crds.yaml (requires --force during execute)"
+  else
+    defensive_run_cmd "mkdir -p \"$REPO_HELM/chart/templates\""
+    defensive_require_force "overwrite $REPO_HELM/chart/templates/crds.yaml"
+    defensive_run_cmd "cp \"$REPO_MANAGER/k8s/crds.yaml\" \"$REPO_HELM/chart/templates/crds.yaml\""
+  fi
+}
 
-# Compliance Check (Global Policy)
-echo "[Check] Verifying ASCII-only compliance for generated files..."
-if grep -rP '[^\x00-\x7f]' "${REPO_HELM}/deploy/longhorn.yaml"; then
-    echo "[ERROR] Non-ASCII characters detected!"
-    exit 1
-fi
+stage_manifests() {
+  if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] (cd $REPO_HELM && bash ./scripts/generate-longhorn-yaml.sh)"
+  else
+    defensive_run_cmd "(cd \"$REPO_HELM\" && bash ./scripts/generate-longhorn-yaml.sh)"
+  fi
+}
 
-echo "[SUCCESS] CRD synchronization complete."
+stage_ascii_check() {
+  target="$REPO_HELM/deploy/longhorn.yaml"
+  if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] grep -rP '[^\\x00-\\x7f]' $target"
+    return
+  fi
+  if grep -rP '[^\x00-\x7f]' "$target" >/dev/null; then
+    die "Non-ASCII characters detected in $target"
+  else
+    info "ASCII check passed for $target"
+  fi
+}
+
+info "[1/3] Stage 1: Generating CRDs"
+stage_generate
+info "[2/3] Stage 2: Syncing CRDs into Helm chart"
+stage_sync
+info "[3/3] Stage 3: Regenerating manifests"
+stage_manifests
+info "[Check] Verifying ASCII-only compliance"
+stage_ascii_check
+
+info "[SUCCESS] CRD synchronization workflow complete."

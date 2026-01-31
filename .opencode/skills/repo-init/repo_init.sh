@@ -1,24 +1,54 @@
-#!/bin/bash
-# Usage: ./repo_init.sh
+#!/usr/bin/env bash
+# Usage: ./repo_init.sh [--execute] [--force] [--json-log] [--no-color]
 # Batch clone and initialize all repos from repo/repo-list, supporting 'account/repo_name' format, only keep local 'upstream' branch
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
+
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options]
+
+Clone all repositories listed in repo/repo-list from upstream and keep only a local 'upstream' branch.
+
+Options:
+  --execute           Perform network and filesystem actions (default dry-run)
+  --force             Permit destructive cleanup (branch deletions)
+  --json-log          Emit JSON log lines
+  --no-color          Disable color output (not used in this script)
+  -n, --dry-run       Dry-run mode (default)
+  -h, --help          Show this help
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+if [ "$#" -gt 0 ]; then
+  error "repo-init does not accept positional arguments"
+  defensive_show_help
+  exit "$EXIT_ARG"
+fi
 
 REPO_LIST="repo/repo-list"
 REPO_DIR="repo"
 
+defensive_require_clean_tree
+defensive_require_upstream_head
+defensive_record_safety_ref
+
 if [ ! -f "$REPO_LIST" ]; then
-    echo "ERROR: $REPO_LIST not found."
-    exit 1
+    die "$REPO_LIST not found. Run repo-init from workspace root."
 fi
+
+info "Dry-run mode: $DRY_RUN"
+info "Force mode: $FORCE"
 
 while IFS= read -r ENTRY || [ -n "$ENTRY" ]; do
     ENTRY="$(echo "$ENTRY" | xargs)"
     [[ -z "$ENTRY" || "$ENTRY" =~ ^# ]] && continue
 
-    # Only accept 'account/repo_name' format
     if [[ ! "$ENTRY" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
-        echo "[WARN] Skip invalid format: '$ENTRY' (expect account/repo_name)" >&2
+        warn "Skip invalid format: '$ENTRY' (expect account/repo_name)"
         continue
     fi
 
@@ -27,34 +57,35 @@ while IFS= read -r ENTRY || [ -n "$ENTRY" ]; do
     TARGET_PATH="${REPO_DIR}/${reponame}"
 
     if [ -d "$TARGET_PATH/.git" ]; then
-        echo "[SKIP] $ENTRY already exists at $TARGET_PATH"
+        warn "[SKIP] $ENTRY already exists at $TARGET_PATH"
         continue
     fi
 
-    echo "------------------------------------------------------------"
-    echo "[ACTION] Cloning $ENTRY from upstream..."
-
+    info "[ACTION] Preparing to clone $ENTRY from upstream"
     UPSTREAM_URL="https://github.com/${account}/${reponame}.git"
-    git clone "$UPSTREAM_URL" "$TARGET_PATH" --origin upstream
+    defensive_run_cmd "git clone \"$UPSTREAM_URL\" \"$TARGET_PATH\" --origin upstream"
 
-    cd "$TARGET_PATH"
+    if [ "$DRY_RUN" = true ]; then
+        info "[DRY-RUN] cd \"$TARGET_PATH\" && detect upstream default branch"
+        info "[DRY-RUN] cd \"$TARGET_PATH\" && git switch -c upstream upstream/<branch>"
+        info "[DRY-RUN] cd \"$TARGET_PATH\" && delete non-upstream branches (requires --force during execute)"
+    else
+        (
+            cd "$TARGET_PATH"
+            MAIN_BRANCH=$(git remote show upstream | grep 'HEAD branch' | awk '{print $5}')
+            info "Detected upstream default branch: $MAIN_BRANCH"
+            defensive_run_cmd "git switch -c upstream \"upstream/$MAIN_BRANCH\""
 
-    # Detect default branch of upstream remote
-    MAIN_BRANCH=$(git remote show upstream | grep 'HEAD branch' | cut -d' ' -f5)
-    echo "[INFO] Detected upstream default branch: $MAIN_BRANCH"
+            defensive_require_force "delete extra local branches in $TARGET_PATH"
+            for branch in $(git branch --format='%(refname:short)'); do
+                if [ "$branch" != "upstream" ]; then
+                    defensive_run_cmd "git branch -D \"$branch\""
+                fi
+            done
+        )
+    fi
 
-    git switch -c upstream "upstream/$MAIN_BRANCH"
-
-    # Delete all local branches except 'upstream'
-    for branch in $(git branch --format='%(refname:short)'); do
-      if [ "$branch" != "upstream" ]; then
-        git branch -D "$branch" 2>/dev/null || true
-        echo "[INFO] Removed local branch: $branch"
-      fi
-    done
-
-    cd - > /dev/null
-    echo "[DONE] $ENTRY complete."
+    info "[DONE] $ENTRY processed"
 done < "$REPO_LIST"
 
-echo "=== All repositories processed ==="
+info "=== All repositories processed ==="

@@ -105,3 +105,115 @@ Use this hierarchy to plan your changes. Modifications in lower layers REQUIRE u
 * **Version Coordination**
     * *Source of Truth*: "repo/dep-versions/versions.json"
     * *Usage*: When upgrading CSI sidecars or external dependencies, update this file to ensure CI consistency.
+
+---
+
+## 5. PR Preparation and Submission Workflow
+
+This repository defines a concise, defensive workflow for preparing pull requests. Follow these steps for every contribution to ensure a clean history, proper attribution, and safe interaction with upstream and origin remotes.
+
+* **Coding Convention**: Follow the Longhorn coding style guide: https://github.com/longhorn/longhorn/wiki/Coding-Convention
+
+1. Verify a clean working tree
+
+```sh
+# Ensure no uncommitted changes or staged files
+git status --porcelain
+# Expect no output for a clean tree
+```
+
+2. Fetch upstream and determine default branch
+
+```sh
+# Fetch remote refs
+git fetch upstream
+
+# Detect upstream default branch (main or master)
+git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@'
+```
+
+Failure mode: if the upstream/HEAD symbolic ref is missing or the command fails, stop and resolve remotes before proceeding. Do not attempt to guess the default branch; ask a maintainer or inspect upstream remote manually.
+
+3. Create an optional safety backup branch (recommended)
+
+```sh
+# Create a local backup branch from current HEAD before rebasing
+git branch backup/$(date +%Y%m%d%H%M%S)
+```
+
+4. Rebase onto upstream default
+
+```sh
+# Example: rebase onto upstream/main (use the detected branch name)
+git rebase upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
+```
+
+Conflict preference: when resolving conflicts prefer upstream changes by default unless your change intentionally overrides upstream logic. Resolve conflicts, then continue the rebase with `git rebase --continue`.
+
+5. Squash commits and sign-off (repo-scoped exception)
+
+This repository requires a single commit with a Developer Certificate of Origin sign-off. This is a scoped exception to the root AGENTS policy that otherwise forbids agent signoff automation. Add a single commit using an interactive rebase or squash strategy, then commit with signoff:
+
+```sh
+# Squash to a single commit (example using interactive rebase)
+git rebase -i upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
+
+# Create the commit and add a sign-off
+git commit -s -m "<storyid>-brief: <one-line summary>\n\nDetailed description..."
+```
+
+6. Push to origin only
+
+Push your feature branch to your personal fork (origin). Do not push to upstream.
+
+```sh
+git push -u origin HEAD
+```
+
+If the remote rejects the push because the remote branch has diverged and you must update the remote branch, use a force-with-lease option only after explicit review and consent. By default, force pushes are forbidden.
+
+```sh
+# Allowed only when explicitly approved: safer force push
+git push --force-with-lease origin HEAD
+```
+
+Checklist before creating the PR
+
+- [ ] Working tree is clean (no uncommitted changes)
+- [ ] `git fetch upstream` completed successfully
+- [ ] Upstream default branch detected via:
+  - `git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@'`
+- [ ] Optional backup branch created
+- [ ] Branch rebased onto upstream default and conflicts resolved
+- [ ] Commits squashed into a single commit
+- [ ] Commit created with `git commit -s` (repo-specific exception)
+- [ ] Pushed to `origin` (no push to `upstream`)
+- [ ] If force push required, used `--force-with-lease` with explicit approval
+
+Notes
+
+- This section explicitly permits using `git commit -s` as a repository-scoped exception to the global agent guidance that normally forbids automated sign-off. Use sign-off to certify contribution origin when creating the PR.
+- Do not push directly to upstream. Always create the PR from your fork (origin).
+- If `git symbolic-ref refs/remotes/upstream/HEAD` is not available, fail fast: stop, inspect remotes, and fix upstream configuration before continuing.
+
+### Verification Commands
+
+Use these to sanity-check the workflow before opening a PR:
+
+```sh
+# 1. Clean working tree and staged area
+git status --porcelain && git diff --exit-code && git diff --cached --exit-code
+
+# 2. Detect upstream default branch
+git fetch upstream
+
+# 3. Dry-run rebase preview (no changes)
+
+# 4. Signoff verification (use allow-empty to avoid history changes)
+git reset HEAD~
+
+# 5. Push checks
+# If PR branch already exists and needs updating after squash:
+```
+
+Remove the temporary empty commit immediately after step 4. Dry-run commands confirm that no unintended history rewrites occur and that force pushes use `--force-with-lease` only when explicitly required.

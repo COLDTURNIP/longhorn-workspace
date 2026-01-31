@@ -19,7 +19,9 @@ An automated validation tool to enforce the workspace-wide ASCII-only policy (0x
 - **CI/CD Simulation**: Whenever an Agent completes a multi-file refactoring task.
 
 ## Usage
-Execute from the workspace root. To maximize efficiency, **avoid scanning the entire repository**; target only specific files or staged changes.
+Execute from the workspace root. Uses defensive prelude: default dry-run; use `--execute` to run. Supports `--json-log`, `--no-color`, `--force` (unused), `--dry-run`.
+
+To maximize efficiency, **avoid scanning the entire repository**; target only specific files or staged changes.
 
 ```bash
 # Scan specific modified files (e.g., using git status/diff)

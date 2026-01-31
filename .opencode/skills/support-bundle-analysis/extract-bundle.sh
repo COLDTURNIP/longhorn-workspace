@@ -1,17 +1,63 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Support Bundle Extraction Script
 # Automatically extracts support bundle and all node bundles
 # Provides structure overview and diagnostic command suggestions
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
 
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options] <bundle-file> [output-dir]
+
+Extract a Longhorn support bundle zip and expand nested node bundles.
+
+Options:
+  --execute           Perform extraction (default dry-run; exits after printing instructions)
+  --force             Permit removal of original node zips after extraction
+  --json-log          Emit JSON logs
+  --no-color          Disable ANSI color output
+  -n, --dry-run       Dry-run mode (default)
+  -h, --help          Show this message
+
+Arguments:
+  bundle-file         Path to support bundle .zip file
+  output-dir          Optional extraction directory (default: /tmp/sb-analysis-<timestamp>)
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  error "bundle-file (and optional output-dir) required"
+  defensive_show_help
+  exit "$EXIT_ARG"
+fi
+
+BUNDLE_FILE="$1"
+OUTPUT_DIR="${2:-}"
+ALREADY_EXTRACTED=false
+
+defensive_require_clean_tree
+defensive_require_upstream_head
+defensive_record_safety_ref
+
+if [ "$DRY_RUN" = true ]; then
+  info "Dry-run mode: provide --execute to run extraction"
+  info "Planned actions: unzip bundle, expand node zips, show structure summaries"
+  exit "$EXIT_OK"
+fi
+
+if [ "$NO_COLOR" = true ]; then
+  RED=''; GREEN=''; YELLOW=''; BLUE=''; NC=''
+else
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+fi
 
 # Script usage function
 usage() {
@@ -33,36 +79,13 @@ Example:
 After extraction, you can analyze:
   - K8s resources: yamls/
   - Pod logs: logs/
-  - Node system logs: nodes/<node-name>/logs/ ⭐
+  - Node system logs: nodes/<node-name>/logs/
 
 EOF
     exit 1
 }
 
-# Check if help requested
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    usage
-fi
-
-# Parse arguments
-BUNDLE_FILE=""
-OUTPUT_DIR=""
-ALREADY_EXTRACTED=false
-
-if [ $# -ge 1 ]; then
-    BUNDLE_FILE="$1"
-fi
-
-if [ $# -ge 2 ]; then
-    OUTPUT_DIR="$2"
-fi
-
 # Validate bundle file
-if [ -z "$BUNDLE_FILE" ]; then
-    echo -e "${RED}Error: Bundle file not specified${NC}"
-    usage
-fi
-
 if [ ! -f "$BUNDLE_FILE" ]; then
     echo -e "${RED}Error: Bundle file not found: $BUNDLE_FILE${NC}"
     exit 1
@@ -73,46 +96,47 @@ echo ""
 echo -e "${BLUE}=== Support Bundle Extraction ===${NC}"
 echo ""
 
-echo "Extraction Options:"
-echo "1) Extract to temporary directory (recommended): /tmp/sb-analysis-<timestamp>"
-echo "2) Extract to specific directory"
-echo "3) Bundle already extracted"
-echo ""
-read -p "Choose option [1-3]: " extract_choice
+if [ -z "$OUTPUT_DIR" ]; then
+    echo "Extraction Options:"
+    echo "1) Extract to temporary directory (recommended): /tmp/sb-analysis-<timestamp>"
+    echo "2) Extract to specific directory"
+    echo "3) Bundle already extracted"
+    echo ""
+    read -p "Choose option [1-3]: " extract_choice
 
-case $extract_choice in
-    1)
-        OUTPUT_DIR="/tmp/sb-analysis-$(date +%s)"
-        echo -e "${GREEN}Using temporary directory: $OUTPUT_DIR${NC}"
-        ;;
-    2)
-        read -p "Enter extraction path: " user_path
-        OUTPUT_DIR="$user_path"
-        echo -e "${GREEN}Using custom directory: $OUTPUT_DIR${NC}"
-        ;;
-    3)
-        read -p "Enter path to extracted bundle: " user_path
-        OUTPUT_DIR="$user_path"
-        ALREADY_EXTRACTED=true
-        echo -e "${GREEN}Using already extracted bundle: $OUTPUT_DIR${NC}"
-        ;;
-    *)
-        echo -e "${YELLOW}Invalid choice. Using temporary directory.${NC}"
-        OUTPUT_DIR="/tmp/sb-analysis-$(date +%s)"
-        ;;
-esac
-
-echo ""
+    case $extract_choice in
+        1)
+            OUTPUT_DIR="/tmp/sb-analysis-$(date +%s)"
+            echo -e "${GREEN}Using temporary directory: $OUTPUT_DIR${NC}"
+            ;;
+        2)
+            read -p "Enter extraction path: " user_path
+            OUTPUT_DIR="$user_path"
+            echo -e "${GREEN}Using custom directory: $OUTPUT_DIR${NC}"
+            ;;
+        3)
+            read -p "Enter path to extracted bundle: " user_path
+            OUTPUT_DIR="$user_path"
+            ALREADY_EXTRACTED=true
+            echo -e "${GREEN}Using already extracted bundle: $OUTPUT_DIR${NC}"
+            ;;
+        *)
+            echo -e "${YELLOW}Invalid choice. Using temporary directory.${NC}"
+            OUTPUT_DIR="/tmp/sb-analysis-$(date +%s)"
+            ;;
+    esac
+    echo ""
+fi
 
 # Step 1: Create output directory
 if [ "$ALREADY_EXTRACTED" != "true" ]; then
     echo -e "${BLUE}Creating output directory...${NC}"
-    mkdir -p "$OUTPUT_DIR"
+    defensive_run_cmd "mkdir -p \"$OUTPUT_DIR\""
     echo -e "${GREEN}Output directory: $OUTPUT_DIR${NC}"
 
     # Step 2: Extract main bundle
     echo -e "${BLUE}Extracting support bundle...${NC}"
-    unzip -q "$BUNDLE_FILE" -d "$OUTPUT_DIR"
+    defensive_run_cmd "unzip -q \"$BUNDLE_FILE\" -d \"$OUTPUT_DIR\""
 
     # Find extracted bundle directory
     BUNDLE_DIR=$(find "$OUTPUT_DIR" -type d -name "supportbundle_*" | head -1)
@@ -126,7 +150,7 @@ if [ "$ALREADY_EXTRACTED" != "true" ]; then
     echo ""
 fi
 
-# Step 3: Extract all node bundles ⭐ CRITICAL FEATURE
+# Step 3: Extract all node bundles (critical feature)
 if [ -d "$BUNDLE_DIR/nodes" ]; then
     echo -e "${BLUE}Extracting node bundles...${NC}"
     NODE_ZIPS=$(find "$BUNDLE_DIR/nodes" -maxdepth 1 -name "*.zip" 2>/dev/null)
@@ -146,18 +170,19 @@ if [ -d "$BUNDLE_DIR/nodes" ]; then
             fi
 
             # Extract node bundle
-            mkdir -p "$node_dir"
-            unzip -q "$node_zip" -d "$node_dir"
-            echo -e "${GREEN}  ✓ Extracted: $node_name${NC}"
+            defensive_run_cmd "mkdir -p \"$node_dir\""
+            defensive_run_cmd "unzip -q \"$node_zip\" -d \"$node_dir\""
+            echo -e "${GREEN}  [OK] Extracted: $node_name${NC}"
         done
 
         # Cleanup: remove original node zips to save space
         echo ""
         echo -e "${BLUE}Cleaning up original node zips...${NC}"
+        defensive_require_force "remove node zip archives"
         for node_zip in $NODE_ZIPS; do
-            rm -f "$node_zip"
+            defensive_run_cmd "rm -f \"$node_zip\""
         done
-        echo -e "${GREEN}  ✓ Removed original node zips${NC}"
+        echo -e "${GREEN}  [OK] Removed original node zips${NC}"
     else
         echo -e "${YELLOW}  ! No node bundles found in nodes/ directory${NC}"
     fi
@@ -209,7 +234,7 @@ if [ -d "$BUNDLE_DIR/nodes" ]; then
     echo ""
 fi
 
-# Step 5: Node bundle structure overview ⭐ NEW
+# Step 5: Node bundle structure overview (new)
 if [ -d "$BUNDLE_DIR/nodes" ]; then
     echo -e "${BLUE}Node Bundle Structure Overview:${NC}"
     echo "  Each node bundle contains:"
@@ -245,7 +270,7 @@ echo -e "${GREEN}Analysis directory:${NC}"
 echo "  cd $BUNDLE_DIR"
 echo ""
 
-echo -e "${GREEN}✓ Bundle extraction completed${NC}"
+echo -e "${GREEN}[OK] Bundle extraction completed${NC}"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Confirm bundle path: $BUNDLE_DIR"
@@ -255,4 +280,3 @@ echo "     - Start with SKILL.md (Pre-Analysis + Phase 0-1)"
 echo "     - Proceed to diagnostic-flows.md for deep diagnosis (Phase 2-3)"
 echo "     - Use patterns-library.md for root cause analysis (Phase 4)"
 echo ""
-

@@ -1,58 +1,107 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # map_interactions.sh - Production-focused Proto-driven mapping.
 # Excludes vendor, tests, and non-Go files from gRPC client discovery.
 
-set -e
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
+
+usage() {
+cat <<USAGE
+Usage: $SCRIPT_NAME [options]
+
+Generate architectural indices in context/indices/ for CRD-controller mapping and gRPC topology.
+
+Options:
+  --execute           Write JSON indices (default dry-run)
+  --force             Permit overwriting existing index files
+  --json-log          Emit JSON logs
+  --no-color          Disable ANSI color
+  -n, --dry-run       Dry-run mode (default)
+  -h, --help          Show this help
+USAGE
+}
+
+defensive_parse_args "$@"
+set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
+if [ "$#" -gt 0 ]; then
+  error "map_interactions does not accept positional arguments"
+  defensive_show_help
+  exit "$EXIT_ARG"
+fi
+
+defensive_require_clean_tree
+defensive_require_upstream_head
+defensive_record_safety_ref
 
 INDEX_DIR="context/indices"
-mkdir -p "$INDEX_DIR"
+if [ "$DRY_RUN" = true ]; then
+  info "[DRY-RUN] mkdir -p $INDEX_DIR"
+else
+  defensive_run_cmd "mkdir -p \"$INDEX_DIR\""
+fi
 
-# --- Phase 1: CRD-Controller Mapping (Source of Truth: register.go) ---
-echo "[INFO] Phase 1: Mapping CRDs via register.go..."
+# --- Phase 1: CRD-Controller Mapping ---
+info "[INFO] Phase 1: Mapping CRDs via register.go"
 CRD_WHITELIST=$(grep -rE "&\w+\{\}" repo/longhorn-manager/pkg/apis/longhorn repo/longhorn-manager/k8s/pkg/apis/longhorn 2>/dev/null | grep "register.go" | sed -E 's/.*&(\w+)\{\}.*/\1/' | grep -v "List$" | sort -u)
-
-echo "{" > "$INDEX_DIR/crd-interaction.json"
-FIRST=true
 CONTROLLER_FILES=$(find repo/longhorn-manager/controller -name "*_controller.go" ! -name "base_controller.go" ! -name "*_test.go")
-for file in $CONTROLLER_FILES; do
+TMP_CRD=$(mktemp)
+{
+  echo "{"
+  FIRST=true
+  for file in $CONTROLLER_FILES; do
     STRUCT_NAME=$(grep -oP "type \K\w+Controller(?= struct)" "$file" || true)
     if [ -n "$STRUCT_NAME" ]; then
-        KIND=${STRUCT_NAME%Controller}
-        if echo "$CRD_WHITELIST" | grep -qxw "$KIND"; then
-            if [ "$FIRST" = false ]; then echo "," >> "$INDEX_DIR/crd-interaction.json"; fi
-            echo "  \"$KIND\": \"@repo/longhorn-manager/$file\"" >> "$INDEX_DIR/crd-interaction.json"
-            FIRST=false
-        fi
+      KIND=${STRUCT_NAME%Controller}
+      if echo "$CRD_WHITELIST" | grep -qxw "$KIND"; then
+        if [ "$FIRST" = false ]; then echo ","; fi
+        echo "  \"$KIND\": \"@repo/longhorn-manager/$file\""
+        FIRST=false
+      fi
     fi
-done
-echo "}" >> "$INDEX_DIR/crd-interaction.json"
+  done
+  echo "}"
+} > "$TMP_CRD"
 
-# --- Phase 2: Refined Production gRPC Topology ---
-echo "[INFO] Phase 2: Mapping gRPC Topology (Source Files Only)..."
-
-# 1. Discover services from .proto files in @repo/types (excluding vendor)
+# --- Phase 2: gRPC Topology ---
+info "[INFO] Phase 2: Mapping gRPC topology"
 PROTO_FILES=$(find repo/types -name "*.proto" -not -path "*/vendor/*")
 SERVICES=$(grep -hE "^service [A-Z]\w+" $PROTO_FILES | awk '{print $2}' | tr -d '{')
-
-echo "{" > "$INDEX_DIR/rpc-topology.json"
-FIRST=true
-
-for svc in $SERVICES; do
+TMP_RPC=$(mktemp)
+{
+  echo "{"
+  FIRST=true
+  for svc in $SERVICES; do
     PROTO_PATH=$(grep -lE "service $svc\b" $PROTO_FILES | head -n 1)
-    
-    # NEW: Restricted grep to only scan *.go files and ignore *_test.go
-    # Also continues to exclude vendor/ and types/ generated code.
     CLIENT_REPOS=$(grep -r --include="*.go" --exclude="*_test.go" "New${svc}Client" repo/ | \
         grep -v "repo/types" | grep -v "vendor/" | \
         cut -d'/' -f2 | sort -u | xargs | tr ' ' ',')
-
-    if [ "$FIRST" = false ]; then echo "," >> "$INDEX_DIR/rpc-topology.json"; fi
-    echo "  \"$svc\": {" >> "$INDEX_DIR/rpc-topology.json"
-    echo "    \"definition\": \"@${PROTO_PATH#repo/}\"," >> "$INDEX_DIR/rpc-topology.json"
-    echo "    \"clients\": \"$CLIENT_REPOS\"" >> "$INDEX_DIR/rpc-topology.json"
-    echo "  }" >> "$INDEX_DIR/rpc-topology.json"
+    if [ "$FIRST" = false ]; then echo ","; fi
+    echo "  \"$svc\": {"
+    echo "    \"definition\": \"@${PROTO_PATH#repo/}\"," 
+    echo "    \"clients\": \"$CLIENT_REPOS\""
+    echo "  }"
     FIRST=false
-done
-echo "}" >> "$INDEX_DIR/rpc-topology.json"
+  done
+  echo "}"
+} > "$TMP_RPC"
 
-echo "[SUCCESS] Architectural maps are now exclusively based on production Go source code."
+write_index() {
+  local tmp_file=$1 target=$2
+  if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] Would update $target"
+    return
+  fi
+  defensive_require_force "overwrite $target"
+  if [ -f "$target" ]; then
+    defensive_backup_file "$target"
+  fi
+  defensive_atomic_write "$target" < "$tmp_file"
+  info "Updated $target"
+}
+
+write_index "$TMP_CRD" "$INDEX_DIR/crd-interaction.json"
+write_index "$TMP_RPC" "$INDEX_DIR/rpc-topology.json"
+
+rm -f "$TMP_CRD" "$TMP_RPC"
+
+info "[SUCCESS] Architectural maps updated." 
