@@ -29,6 +29,8 @@ Run from the workspace root:
 bash .opencode/skills/ticket-sanitizer/ticket_sanitizer.sh
 ```
 
+> Note: The script now only warns (rather than failing) if the workspace git remotes are incomplete, so it can run immediately after cloning the workspace.
+
 ## Expected Outcomes
 
 1. All folders in `@ticket/` renamed to follow lowercase `snake_case` with proper organization prefixes.

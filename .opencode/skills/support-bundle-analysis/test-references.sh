@@ -13,8 +13,7 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -gt 0 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "This script does not take positional arguments"
   defensive_show_help
   exit "$EXIT_ARG"

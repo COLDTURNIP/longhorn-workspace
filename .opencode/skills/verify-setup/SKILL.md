@@ -30,8 +30,8 @@ bash .opencode/skills/verify-setup/verify_setup.sh [options]
 3. **Dapper/make**
    - Verifies `make` is available (required for Dapper builds) and warns if `dapper` binary is missing.
 4. **Git remotes**
-   - Ensures an `upstream` remote exists and `git symbolic-ref refs/remotes/upstream/HEAD` succeeds (detects default branch).
-   - Warns if `origin` remote is missing (since PRs push to `origin`).
+   - Warns (instead of failing) if `upstream` remote or its HEAD reference is missing, so the script can run in freshly cloned workspaces.
+   - Warns if `origin` remote is missing (since PRs normally push to `origin`).
 5. **Workspace cleanliness**
    - Fails if the workspace has uncommitted changes (`git status --porcelain`), unless `SKIP_CLEAN_CHECK=true` is set.
 6. **Optional PATH sanity**

@@ -21,8 +21,7 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -gt 0 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "sync-crd-helm does not accept positional arguments"
   defensive_show_help
   exit "$EXIT_ARG"
@@ -32,7 +31,11 @@ REPO_MANAGER="repo/longhorn-manager"
 REPO_HELM="repo/longhorn"
 
 defensive_require_clean_tree
-defensive_require_upstream_head
+if ! git remote get-url upstream >/dev/null 2>&1; then
+  warn "Missing upstream remote; continuing"
+elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
+  warn "Cannot resolve refs/remotes/upstream/HEAD; run 'git remote set-head upstream --auto' later"
+fi
 defensive_record_safety_ref
 
 stage_generate() {

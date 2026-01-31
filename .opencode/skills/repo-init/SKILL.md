@@ -16,8 +16,16 @@ No personal fork (origin remote) is configured.
 
 ## Usage
 
+Dry-run (default):
+
 ```bash
 bash .opencode/skills/repo-init/repo_init.sh
+```
+
+Execute clone/init actions (requires confirmation for branch cleanup):
+
+```bash
+bash .opencode/skills/repo-init/repo_init.sh --execute --force
 ```
 
 ## Process Details
@@ -33,4 +41,5 @@ bash .opencode/skills/repo-init/repo_init.sh
 
 - This skill interacts with all repos listed in `repo/repo-list` in a single batch.
 - Ensure the `repo` directory exists and is writeable.
+- The workspace repository does not need an `upstream` remote configured; the script will continue with a warning if it is missing.
 - Recommended as the first step when initializing a new workspace.

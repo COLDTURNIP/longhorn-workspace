@@ -22,8 +22,8 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -gt 0 ]; then
+
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "repo-init does not accept positional arguments"
   defensive_show_help
   exit "$EXIT_ARG"
@@ -33,7 +33,9 @@ REPO_LIST="repo/repo-list"
 REPO_DIR="repo"
 
 defensive_require_clean_tree
-defensive_require_upstream_head
+if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
+    warn "refs/remotes/upstream/HEAD not found; continuing without upstream tracking"
+fi
 defensive_record_safety_ref
 
 if [ ! -f "$REPO_LIST" ]; then

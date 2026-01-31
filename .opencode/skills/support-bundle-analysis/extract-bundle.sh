@@ -28,19 +28,22 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -lt 1 ] || [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 2 ]; then
   error "bundle-file (and optional output-dir) required"
   defensive_show_help
   exit "$EXIT_ARG"
 fi
 
-BUNDLE_FILE="$1"
-OUTPUT_DIR="${2:-}"
+BUNDLE_FILE="${DEFENSIVE_POSITIONAL_ARGS[0]}"
+OUTPUT_DIR="${DEFENSIVE_POSITIONAL_ARGS[1]:-}"
 ALREADY_EXTRACTED=false
 
 defensive_require_clean_tree
-defensive_require_upstream_head
+if ! git remote get-url upstream >/dev/null 2>&1; then
+  warn "Missing upstream remote; continuing"
+elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
+  warn "Cannot resolve refs/remotes/upstream/HEAD; run 'git remote set-head upstream --auto' later"
+fi
 defensive_record_safety_ref
 
 if [ "$DRY_RUN" = true ]; then

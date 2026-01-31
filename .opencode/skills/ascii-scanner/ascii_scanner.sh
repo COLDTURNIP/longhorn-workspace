@@ -22,15 +22,14 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
 
-if [ "$#" -lt 1 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -lt 1 ]; then
     error "Target path required"
     defensive_show_help
     exit "$EXIT_ARG"
 fi
 
-TARGET=${1#@}
+TARGET=${DEFENSIVE_POSITIONAL_ARGS[0]#@}
 
 if [ "$DRY_RUN" = true ]; then
     info "[DRY-RUN] Would scan target: $TARGET"

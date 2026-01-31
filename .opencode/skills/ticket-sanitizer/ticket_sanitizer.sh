@@ -25,17 +25,20 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -gt 1 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 1 ]; then
   error "Too many arguments"
   defensive_show_help
   exit "$EXIT_ARG"
 fi
 
-TICKET_ROOT=${1:-ticket}
+TICKET_ROOT=${DEFENSIVE_POSITIONAL_ARGS[0]:-ticket}
 
 defensive_require_clean_tree
-defensive_require_upstream_head
+if ! git remote get-url upstream >/dev/null 2>&1; then
+  warn "Missing upstream remote; continuing without it"
+elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
+  warn "Cannot resolve refs/remotes/upstream/HEAD; run 'git remote set-head upstream --auto' later"
+fi
 defensive_record_safety_ref
 
 info "Ticket root: $TICKET_ROOT"

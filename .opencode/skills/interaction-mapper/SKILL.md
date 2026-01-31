@@ -24,6 +24,8 @@ Run from workspace root:
 bash .opencode/skills/interaction-mapper/map_interactions.sh
 ```
 
+> Remotes: The script now logs warnings instead of failing if the workspace lacks an `upstream` remote, so it is safe immediately after cloning.
+
 ## Expected Outcomes
 - `context/indices/crd-interaction.json`: Map of CRDs to their primary reconciling logic.
 - `context/indices/rpc-topology.json`: Map of gRPC services and their cross-repo caller relationships.

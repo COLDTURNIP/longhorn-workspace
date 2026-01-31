@@ -16,9 +16,8 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
 
-if [ "$#" -lt 2 ]; then
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -lt 2 ]; then
   error "Missing required arguments"
   defensive_show_help
   exit "$EXIT_ARG"
@@ -27,8 +26,8 @@ fi
 CRD_MAP="context/indices/crd-interaction.json"
 RPC_MAP="context/indices/rpc-topology.json"
 
-cmd=$1
-arg=$2
+cmd=${DEFENSIVE_POSITIONAL_ARGS[0]}
+arg=${DEFENSIVE_POSITIONAL_ARGS[1]}
 
 if [ "$cmd" = "--crd" ]; then
   PATH_OUT=$(jq -r ".\"$arg\"" "$CRD_MAP")

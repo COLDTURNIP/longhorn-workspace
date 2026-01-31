@@ -20,8 +20,8 @@ USAGE
 }
 
 defensive_parse_args "$@"
-set -- "${DEFENSIVE_POSITIONAL_ARGS[@]:-}"
-if [ "$#" -gt 0 ]; then
+
+if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "verify-setup does not accept positional arguments"
   defensive_show_help
   exit "$EXIT_ARG"
@@ -62,19 +62,24 @@ check_make() {
 }
 
 check_git_remotes() {
+  local remote_status="ok"
   if ! git rev-parse --git-dir >/dev/null 2>&1; then
     die "verify-setup must run inside the workspace git repository"
   fi
   if ! git remote get-url upstream >/dev/null 2>&1; then
-    die "Missing upstream remote. Add it before continuing"
-  fi
-  if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
-    die "Cannot resolve refs/remotes/upstream/HEAD. Fix upstream remote"
+    warn "Missing upstream remote; configure one when collaborating with Longhorn upstream"
+    remote_status="warn"
+  elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
+    warn "Cannot resolve refs/remotes/upstream/HEAD. Run 'git remote set-head upstream --auto' later"
+    remote_status="warn"
   fi
   if ! git remote get-url origin >/dev/null 2>&1; then
     warn "origin remote missing. PR pushes expect origin/<feature>"
+    remote_status="warn"
   fi
-  info "Git remotes configured correctly"
+  if [ "$remote_status" = "ok" ]; then
+    info "Git remotes configured correctly"
+  fi
 }
 
 check_clean_tree() {
@@ -89,7 +94,7 @@ check_clean_tree() {
 }
 
 check_path() {
-  if command -v go >/div>null 2>&1; then
+  if command -v go >/dev/null 2>&1; then
     GOPATH_BIN="${GOPATH:-$HOME/go}/bin"
     case ":$PATH:" in
       *":$GOPATH_BIN:"*) ;;

@@ -26,6 +26,8 @@ Execute from workspace root:
 bash .opencode/skills/sync-crd-helm/sync_crd_helm.sh
 ```
 
+> The script now only warns if `upstream` remotes are missing or misconfigured so it can run right after cloning the workspace.
+
 ## The 3-Stage Logic (Internal Detail)
 
 1. **Manager Stage:** Runs make generate in @repo/longhorn-manager to produce k8s/crds.yaml.
