@@ -38,7 +38,6 @@ BUNDLE_FILE="${DEFENSIVE_POSITIONAL_ARGS[0]}"
 OUTPUT_DIR="${DEFENSIVE_POSITIONAL_ARGS[1]:-}"
 ALREADY_EXTRACTED=false
 
-defensive_require_clean_tree
 if ! git remote get-url upstream >/dev/null 2>&1; then
   warn "Missing upstream remote; continuing"
 elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then

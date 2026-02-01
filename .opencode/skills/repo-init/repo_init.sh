@@ -32,7 +32,6 @@ fi
 REPO_LIST="repo/repo-list"
 REPO_DIR="repo"
 
-defensive_require_clean_tree
 if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
     warn "refs/remotes/upstream/HEAD not found; continuing without upstream tracking"
 fi

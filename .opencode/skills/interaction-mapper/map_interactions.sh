@@ -28,7 +28,6 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   exit "$EXIT_ARG"
 fi
 
-defensive_require_clean_tree
 if ! git remote get-url upstream >/dev/null 2>&1; then
   warn "Missing upstream remote; continuing"
 elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then

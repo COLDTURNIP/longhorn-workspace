@@ -78,16 +78,6 @@ defensive_parse_args() {
   done
 }
 
-defensive_require_clean_tree() {
-  if git rev-parse --git-dir >/dev/null 2>&1; then
-    if [ -n "$(git status --porcelain)" ]; then
-      die "Working tree dirty; stash or commit changes before running $SCRIPT_NAME"
-    fi
-  else
-    warn "Not inside a git repository; skipping clean tree check"
-  fi
-}
-
 defensive_require_upstream_head() {
   if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
     die "Missing refs/remotes/upstream/HEAD. Configure upstream remote before continuing."

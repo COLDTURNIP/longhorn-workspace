@@ -33,7 +33,6 @@ fi
 
 TICKET_ROOT=${DEFENSIVE_POSITIONAL_ARGS[0]:-ticket}
 
-defensive_require_clean_tree
 if ! git remote get-url upstream >/dev/null 2>&1; then
   warn "Missing upstream remote; continuing without it"
 elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then

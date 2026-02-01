@@ -30,7 +30,6 @@ fi
 REPO_MANAGER="repo/longhorn-manager"
 REPO_HELM="repo/longhorn"
 
-defensive_require_clean_tree
 if ! git remote get-url upstream >/dev/null 2>&1; then
   warn "Missing upstream remote; continuing"
 elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
