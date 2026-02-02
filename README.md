@@ -32,8 +32,10 @@ workspace-root/
   README.md                     (this file)
   AGENTS.md                     (AI agent instructions - not for commit)
   .opencode/                    (local development state)
+    commands/                   (OpenCode slash commands)
+      repo-init.md              (/repo-init command template)
+      repo-init.sh              (Executable command script)
     skills/                     (AI skills)
-      repo-init/                (Repository initialization)
       interaction-mapper/       (Architectural mapping)
       repo-navigator/           (Code navigation)
       longhorn-build-system/    (Build system expertise)
@@ -43,7 +45,7 @@ workspace-root/
       support-bundle-analysis/  (Diagnostics)
       longhorn-user-docs/       (Documentation assistance)
   repo/                         (all Longhorn repositories)
-    repo-list                   (List of repositories to clone - used by repo-init skill)
+    repo-list                   (List of repositories to clone - used by /repo-init command)
     backing-image-manager/      (Team-owned component)
     cli/                        (Team-owned component)
     longhorn-engine/            (Team-owned component)
@@ -82,14 +84,14 @@ init workspace
 ```
 
 When you provide this prompt to the OpenCode AI agent:
-1. The agent automatically invokes the `repo-init` skill
+1. The agent automatically runs the `/repo-init` command
 2. All repositories from `repo/repo-list` are cloned into the `repo/` directory
 3. Each repository is configured with:
    - `upstream` remote pointing to the official Longhorn repository
    - Local `upstream` branch tracking the upstream default branch (main or master)
 4. The agent then invokes `interaction-mapper` to generate architectural indices
 
-**Note:** The `repo-init` skill only sets up upstream remotes. You are responsible for managing your personal fork configuration if you plan to contribute code.
+**Note:** The `/repo-init` command only sets up upstream remotes. You are responsible for managing your personal fork configuration if you plan to contribute code.
 
 ### Manual Initialization (Alternative)
 
@@ -100,8 +102,9 @@ If you prefer manual setup:
 git clone https://github.com/your-account/longhorn-workspace.git
 cd longhorn-workspace
 
-# Initialize repositories using the repo-init skill
-bash .opencode/skills/repo-init/repo_init.sh
+# Initialize repositories using the /repo-init command
+bash .opencode/commands/repo-init.sh --dry-run   # Preview actions
+bash .opencode/commands/repo-init.sh             # Execute (default)
 ```
 
 To add your personal fork to a repository:
@@ -114,10 +117,12 @@ git remote add origin https://github.com/[your-account]/[repo-name]
 
 The workspace includes specialized AI skills under `.opencode/skills/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
 
-### Available Skills
+### Available Commands
 
-- **repo-init**: Initialize and clone all repositories with upstream configuration
-  - Example: "init workspace" or "use repo-init skill to set up repositories"
+- **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run`, `--json`, `--force` as needed)
+  - Example: "/repo-init --dry-run" or "run /repo-init to refresh the workspace"
+
+### Available Skills
 
 - **interaction-mapper**: Generate architectural maps showing component interactions
   - Example: "map the interactions between components" or "use interaction-mapper to analyze the architecture"
@@ -150,14 +155,14 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
    - "invoke [skill-name] for [purpose]"
 
 2. **Task-based requests**: Describe what you want to accomplish
-   - The agent will automatically select appropriate skills
-   - Example: "initialize the workspace" will trigger repo-init
+   - The agent will automatically select appropriate automation
+   - Example: "initialize the workspace" will trigger `/repo-init`
 
 3. **Multiple skills**: The agent can chain multiple skills
-   - Example: "init workspace and analyze the architecture" will use repo-init and interaction-mapper
+   - Example: "init workspace and analyze the architecture" will run `/repo-init` and invoke interaction-mapper
 
 4. **Skill documentation**: Each skill has documentation in `.opencode/skills/[skill-name]/SKILL.md`
-   - Example: "show me the repo-init skill documentation"
+   - Example: "show me the repo-navigator skill documentation"
 
 ## Additional Resources
 

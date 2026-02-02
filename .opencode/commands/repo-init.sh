@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Usage: ./repo_init.sh [--execute] [--force] [--json-log] [--no-color]
-# Batch clone and initialize all repos from repo/repo-list, supporting 'account/repo_name' format, only keep local 'upstream' branch
+
+set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
+
+# Default to execute mode unless explicitly overridden
+DRY_RUN=${DRY_RUN:-false}
+JSON_OUTPUT=${JSON_OUTPUT:-false}
+
+source "$SCRIPT_DIR/../skills/lib/defensive_prelude.sh"
 
 usage() {
 cat <<USAGE
@@ -12,16 +17,44 @@ Usage: $SCRIPT_NAME [options]
 Clone all repositories listed in repo/repo-list from upstream and keep only a local 'upstream' branch.
 
 Options:
-  --execute           Perform network and filesystem actions (default dry-run)
+  --json              Emit JSON summary to stdout only (silences human logs on stdout)
+  --json-log          Deprecated alias for --json
+  --execute           Perform network and filesystem actions (default)
   --force             Permit destructive cleanup (branch deletions)
-  --json-log          Emit JSON log lines
   --no-color          Disable color output (not used in this script)
-  -n, --dry-run       Dry-run mode (default)
+  -n, --dry-run       Dry-run mode (no changes)
   -h, --help          Show this help
 USAGE
 }
 
+# Pre-process custom flags before invoking defensive parser
+JSON_STDOUT_FD=1
+LEGACY_ARGS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --json|--json-log)
+      JSON_OUTPUT=true
+      ;;
+    *)
+      LEGACY_ARGS+=("$1")
+      ;;
+  esac
+  shift || true
+done
+set -- "${LEGACY_ARGS[@]}"
+
 defensive_parse_args "$@"
+
+if [ "$JSON_OUTPUT" = true ]; then
+  JSON_LOG=true
+  exec 3>&1
+  exec 1>&2
+  JSON_STDOUT_FD=3
+fi
+
+if [ "$DRY_RUN" = false ]; then
+  defensive_record_safety_ref
+fi
 
 if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "repo-init does not accept positional arguments"
@@ -35,7 +68,6 @@ REPO_DIR="repo"
 if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
     warn "refs/remotes/upstream/HEAD not found; continuing without upstream tracking"
 fi
-defensive_record_safety_ref
 
 detect_upstream_default_branch() {
     local repo_label=$1 branch=""
@@ -94,9 +126,11 @@ trim_line() {
 
 json_escape() {
     local value=$1
-    value=${value//\\/\\\\}
-    value=${value//\"/\\\"}
-    value=${value//$'\n'/\\n}
+    local dq='"'
+    local dq_escaped='\"'
+    value=${value//\/\\}
+    value=${value//${dq}/${dq_escaped}}
+    value=${value//$'\n'/\n}
     printf '%s' "$value"
 }
 
@@ -134,7 +168,8 @@ init_repo() {
         return 1
     fi
 
-    if ! (
+    local subshell_rc
+    (
         cd "$target_path"
         main_branch=$(detect_upstream_default_branch "$entry") || exit 2
         info "Detected upstream default branch: $main_branch"
@@ -143,23 +178,24 @@ init_repo() {
             exit 3
         fi
 
-        if [ "$FORCE" = false ]; then
-            exit 4
-        fi
-
-        while IFS= read -r branch; do
-            branch=${branch##*/}
-            if [ "$branch" != "upstream" ]; then
-                if ! run_cmd "git branch -D \"$branch\""; then
-                    exit 5
+        if [ "$FORCE" = true ]; then
+            while IFS= read -r branch; do
+                branch=${branch##*/}
+                if [ "$branch" != "upstream" ]; then
+                    if ! run_cmd "git branch -D \"$branch\""; then
+                        exit 5
+                    fi
                 fi
-            fi
-        done < <(git branch --format='%(refname:short)')
-    ); then
-        case $? in
+            done < <(git branch --format='%(refname:short)')
+        else
+            warn "Skipping branch cleanup for $entry (run with --force to delete non-upstream branches)"
+        fi
+    )
+    subshell_rc=$?
+    if [ "$subshell_rc" -ne 0 ]; then
+        case "$subshell_rc" in
             2) write_result "$result_file" "failed" "$entry" "unable to detect upstream default branch" ;;
             3) write_result "$result_file" "failed" "$entry" "unable to create upstream branch" ;;
-            4) write_result "$result_file" "failed" "$entry" "refusing to delete branches without --force" ;;
             5) write_result "$result_file" "failed" "$entry" "failed to delete extra branches" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
@@ -237,16 +273,23 @@ for result_file in "${RESULT_FILES[@]}"; do
     json_status=$(json_escape "$status")
     json_message=$(json_escape "$message")
     JSON_ITEMS="${JSON_ITEMS}${JSON_SEP}{\"repo\":\"$json_entry\",\"status\":\"$json_status\",\"message\":\"$json_message\"}"
-    JSON_SEP=","
+    JSON_SEP=','
 done
 
-info "=== Summary counts: success=$SUCCESS_COUNT skipped=$SKIP_COUNT dry-run=$DRY_COUNT failed=$FAIL_COUNT ==="
-if [ "$WAIT_FAIL_COUNT" -gt 0 ]; then
-    warn "Subprocess wait failures detected: $WAIT_FAIL_COUNT"
-fi
+human_summary() {
+    printf 'Summary counts: success=%s skipped=%s dry-run=%s failed=%s\n' \
+        "$SUCCESS_COUNT" "$SKIP_COUNT" "$DRY_COUNT" "$FAIL_COUNT"
+    if [ "$WAIT_FAIL_COUNT" -gt 0 ]; then
+        printf 'Subprocess wait failures detected: %s\n' "$WAIT_FAIL_COUNT"
+    fi
+}
 
-printf '{"summary":{"success":%s,"skipped":%s,"dry_run":%s,"failed":%s},"results":[%s]}\n' \
-    "$SUCCESS_COUNT" "$SKIP_COUNT" "$DRY_COUNT" "$FAIL_COUNT" "$JSON_ITEMS"
+if [ "$JSON_OUTPUT" = true ]; then
+    printf '{"summary":{"success":%s,"skipped":%s,"dry_run":%s,"failed":%s},"results":[%s],"wait_failures":%s}\n' \
+        "$SUCCESS_COUNT" "$SKIP_COUNT" "$DRY_COUNT" "$FAIL_COUNT" "$JSON_ITEMS" "$WAIT_FAIL_COUNT" >&"$JSON_STDOUT_FD"
+else
+    human_summary
+fi
 
 if [ "$FAIL_COUNT" -gt 0 ]; then
     exit "$EXIT_ENV"

@@ -12,6 +12,8 @@ context/indices/*
 !.opencode/skills/**
 !.opencode/agents/
 !.opencode/agents/**
+!.opencode/commands/
+!.opencode/commands/**
 .sisyphus
 
 # OpenSpec
