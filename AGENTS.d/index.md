@@ -5,6 +5,7 @@ This directory holds detailed guidance referenced by the root `AGENTS.md`. The r
 ## Contents
 
 - `pr-workflow.md` - PR preparation, rebase/squash/signoff, push policies, verification commands
+- `plan-and-delegation.md` - Planning, delegation atomicity, and plan review clarity
 - `qa-checklist.md` - ASCII scan, force-push scan, bash/shellcheck lint, build/test pointers
 - `impact-analysis.md` - Dependency/layer impacts, go.mod replace cleanup, force/avoid duplicates
 - `crd-helm.md` - CRD generation and Helm sync flow

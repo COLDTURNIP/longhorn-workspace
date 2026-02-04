@@ -12,6 +12,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - Engineering/build tasks (code changes, builds/tests, dependency updates, any `repo/` path) -> read `repo/AGENTS.md` first; it defines build contracts and dependency impacts.
 - Issue/ticket/support-bundle work (`ticket/` paths, failure analysis) -> read `ticket/AGENTS.md` first; it defines evidence collection and folder layout.
 - Always reference files using workspace-relative paths (e.g., `repo/longhorn-manager/controller/...`), never absolute paths.
+- Orchestrator, planner, and plan reviewer must read `AGENTS.d/plan-and-delegation.md` before acting on any plan or delegation.
 
 ## Workspace Scope
 - Applies to the entire Longhorn workspace (`.opencode/` at root).
