@@ -25,6 +25,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - **Signoff** (`git commit -s`) disabled by default; follow repo-level instructions (e.g., repo/AGENTS Section 5) when mandated.
 - **Minimal scope**: change only what the request requires; upstream-derived repos (csi-*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.
 - **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/repo-init` (defaults to executing; offer `--dry-run` if they want a preview) and refresh `context/indices/*` with `interaction-mapper` after cloning.
+- **Tests**: do not edit existing test cases in `*_test.go` files unless the user explicitly requests changes to that specific test case or file.
 
 ## Toolchain Quick Reference
 - Native Longhorn repos (manager, engine, instance-manager, share-manager, etc.): run `make build`, `make test`, `make validate` (Dapper). Do **not** run `go build`/`go test` directly.
