@@ -20,7 +20,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - Never commit AGENTS.md files (root or repo-level). Before PR, ensure `git status` and `git diff --cached` show no AGENTS entries.
 
 ## Non-Negotiable Policies
-- **ASCII-only** for all files/logs/commits. Quick scan: `git diff --name-only | xargs -I {} sh -c 'grep -P -n "[^\x00-\x7F]" "{}" && exit 1 || exit 0'`. Details -> `AGENTS.d/ascii-policy.md`.
+- **ASCII-only** for all files/logs/commits. Use dual-mode scanning: repo/* paths scan only changed/new files (exclude vendor/generated); non-repo paths scan targets directly. Quick scan: `git diff --name-only | xargs -I {} sh -c 'grep -P -n "[^\x00-\x7F]" "{}" && exit 1 || exit 0'`. Details -> `AGENTS.d/ascii-policy.md`.
 - **Force push** forbidden by default; if absolutely required, only `git push --force-with-lease origin <branch>` with explicit user approval. See `AGENTS.d/force-push-policy.md`.
 - **Signoff** (`git commit -s`) disabled by default; follow repo-level instructions (e.g., repo/AGENTS Section 5) when mandated.
 - **Minimal scope**: change only what the request requires; upstream-derived repos (csi-*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.

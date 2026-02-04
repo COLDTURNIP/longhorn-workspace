@@ -24,11 +24,19 @@ Execute from the workspace root. Uses defensive prelude: default dry-run; use `-
 To maximize efficiency, **avoid scanning the entire repository**; target only specific files or staged changes.
 
 ```bash
-# Scan specific modified files (e.g., using git status/diff)
+# Repo paths (changed files only)
+# Scan only changed/new files under repo/<repo-name>/, excluding vendor/ and common generated paths.
+git -C "repo/<repo-name>" diff --diff-filter=ACM --name-only HEAD \
+  | grep -Ev '^(vendor/|generated/|dist/|zz_generated\.)' \
+  | xargs -r -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh "repo/<repo-name>/{}"
+
+# Non-repo paths
+# Scan the target files directly (no git diff).
 bash .opencode/skills/ascii-scanner/ascii_scanner.sh <file_path_1> <file_path_2>
 
 # Recommended: Scan only staged files in a repo
-git -C repo/longhorn-manager diff --cached --name-only | xargs -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh repo/longhorn-manager/{}
+git -C "repo/<repo-name>" diff --cached --name-only \
+  | xargs -r -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh "repo/<repo-name>/{}"
 ```
 
 ## Expected Outcomes

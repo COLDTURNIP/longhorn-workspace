@@ -137,7 +137,8 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
   - Example: "use sync-crd-helm to update Helm chart with latest CRDs"
 
 - **ascii-scanner**: Scan and enforce ASCII-only policy
-  - Example: "use ascii-scanner to check for non-ASCII characters"
+  - Example (repo/*): "use ascii-scanner on changed files under repo/<repo-name>, excluding vendor/generated"
+  - Example (non-repo): "use ascii-scanner to check specific files outside repo/"
 
 - **ticket-sanitizer**: Validate and sanitize ticket information
   - Example: "use ticket-sanitizer to validate this issue description"
