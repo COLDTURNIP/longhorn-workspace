@@ -36,8 +36,8 @@ Maintain the following structure for all tickets:
 ### logs/extracted/ Organization (REQUIRED)
 - Every archive file (zip, tar, etc) in `logs/` MUST be extracted into its own dedicated subdirectory in `logs/extracted/`, named after the archive file (without extension). Do NOT mix extracted content from multiple archives into one subfolder.
 - Example:
-    - `logs/support-prod-20260109.zip` → extract to `logs/extracted/support-prod-20260109/`
-    - `logs/cluster-20260110_foo_bundle.tar.gz` → extract to `logs/extracted/cluster-20260110_foo_bundle/`
+    - `logs/support-prod-20260109.zip` -> extract to `logs/extracted/support-prod-20260109/`
+    - `logs/cluster-20260110_foo_bundle.tar.gz` -> extract to `logs/extracted/cluster-20260110_foo_bundle/`
     - Always remove the archive file extension for the extract directory name.
 
 ### Example Directory Tree
@@ -146,4 +146,3 @@ All `analysis_report.md` MUST follow this structure:
 - Do not rename user-provided bundle files except for technical/legal requirements.
 
 ---
-

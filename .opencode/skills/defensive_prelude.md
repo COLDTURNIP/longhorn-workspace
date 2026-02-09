@@ -43,12 +43,12 @@ info "Force: $FORCE"
 
 ## Available Helpers
 
-- `defensive_parse_args "$@"` → populates shared flags (`DRY_RUN`, `FORCE`, `JSON_LOG`, `NO_COLOR`) and `DEFENSIVE_POSITIONAL_ARGS`.
-- `defensive_show_help` → prints `usage` if defined.
-- `defensive_require_clean_tree` / `defensive_require_upstream_head` / `defensive_record_safety_ref` → guard rails for git state.
-- `defensive_backup_file <path>` and `defensive_atomic_write <path>` → safe file updates.
-- `defensive_run_cmd "command"` → logs and executes (or logs only in dry-run).
-- `defensive_require_force "description"` → enforce `--force` for destructive steps.
+ - `defensive_parse_args "$@"` -> populates shared flags (`DRY_RUN`, `FORCE`, `JSON_LOG`, `NO_COLOR`) and `DEFENSIVE_POSITIONAL_ARGS`.
+ - `defensive_show_help` -> prints `usage` if defined.
+ - `defensive_require_clean_tree` / `defensive_require_upstream_head` / `defensive_record_safety_ref` -> guard rails for git state.
+ - `defensive_backup_file <path>` and `defensive_atomic_write <path>` -> safe file updates.
+ - `defensive_run_cmd "command"` -> logs and executes (or logs only in dry-run).
+ - `defensive_require_force "description"` -> enforce `--force` for destructive steps.
 - Shared `info`, `warn`, `error`, `die` functions with ISO timestamp logging; JSON logging via `--json-log`.
 
 ## Guidance

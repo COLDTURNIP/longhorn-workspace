@@ -6,23 +6,30 @@
 - Keep communications grounded in scope, cite anchors, and avoid assumptions beyond the stated task boundaries.
 
 ## Atomic Delegation
-- Each `delegate_task` call may target exactly one file change **or** one verification command; do not mix code edits and tests in a single delegation.
-- When staying atomic, describe the single expected diff or outcome so an agent can comply without refusing.
-- Use the checklist before issuing a delegation:
-  - One file change OR one verification command only
-  - No code edit + test/verification in the same prompt
-  - Explicitly state the single outcome or diff being requested
+- Each delegation is exactly one file change or one verification command.
+- Do not bundle code edit plus test execution in one delegation prompt.
+- State the exact expected diff or command outcome.
 
-## Plan Review Clarity
-- Reviewers must ensure every plan step includes:
-  1. An explicit action (what to do)
-  2. A target path (file plus function/section anchor when applicable)
-  3. Verification evidence (how success will be confirmed)
-- Plans lacking any of the above must be flagged and clarified before approval.
+## Plan Step Contract
+- Every plan step must include these fields:
+  - `Action`
+  - `Target`
+  - `Verify Command`
+  - `Evidence Path`
+  - `Done Criteria`
+- Missing any field is a plan rejection.
+- `Verify Command` must declare:
+  - interpreter (e.g., bash, python, go)
+  - entrypoint (script, binary, or command)
+  - environment assumption if not default
+  - single-line or heredoc form, copy-paste ready
+  - expected evidence path and success/fail criteria
 
-## Examples
-- Task: Update `repo/foo/bar.md` to document the new feature section.
-- Expected outcome: Only `repo/foo/bar.md` gains the new section; no other files change.
-- Must not: Do not bundle tests or other files in this delegation.
+## Plan Executability Checklist
+- Command is single-line, copy-paste ready, or valid heredoc.
+- Interpreter and entrypoint are explicit (e.g., bash, python, go, etc.).
+- Environment assumption is stated if non-default.
+- Evidence path and expected output are clear.
+- Reviewer must check runtime feasibility, not just syntax.
 
 Notes: Do not edit `.sisyphus/plans/*` or other plan files unless you have explicit authorization to modify them.

@@ -19,12 +19,16 @@ bash .opencode/skills/verify-setup/verify_setup.sh [options]
 | `--json-log` | Emit JSON log entries (useful for automation) |
 | `--no-color` | Disable ANSI colors |
 | `--force` | Reserved (no effect; included for interface consistency) |
+| `--plan-mode` | Verify plan gate prerequisites |
 | `-h`, `--help` | Show help message |
 
 ## Checks Performed
 
+- **Plan-mode prerequisites**
+  - When `--plan-mode` is specified, verifies plan gate prerequisites: checks for required plan contract documentation and scripts, and validates boulder state if present. Fails if any required plan-mode file is missing or invalid.
+
 1. **Go toolchain**
-   - Verifies `go` binary exists and prints version (expects Go ≥ 1.21; configurable via env `MIN_GO_VERSION`).
+   - Verifies `go` binary exists and prints version (expects Go >= 1.21; configurable via env `MIN_GO_VERSION`).
 2. **Docker daemon**
    - Runs `docker info` to ensure Docker daemon is reachable.
 3. **Dapper/make**

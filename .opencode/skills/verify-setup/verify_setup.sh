@@ -3,6 +3,23 @@
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/../lib/defensive_prelude.sh"
 
+# Support a local --plan-mode flag without changing defensive_prelude parsing
+PLAN_MODE=false
+plan_mode_args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --plan-mode)
+      PLAN_MODE=true
+      shift
+      ;;
+    *)
+      plan_mode_args+=("$1")
+      shift
+      ;;
+  esac
+done
+set -- "${plan_mode_args[@]:-}"
+
 usage() {
 cat <<USAGE
 Usage: $SCRIPT_NAME [options]
@@ -15,6 +32,7 @@ Options:
   --json-log          Emit JSON-formatted log lines
   --no-color          Disable ANSI color output (not used)
   --force             Reserved (no effect)
+  --plan-mode         Also verify plan-mode prerequisites
   -h, --help          Show this help
 USAGE
 }
@@ -27,8 +45,58 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   exit "$EXIT_ARG"
 fi
 
-if [ "$DRY_RUN" = true ]; then
+if [ "$DRY_RUN" = true ] && [ "$PLAN_MODE" != true ]; then
   info "Dry-run: Would check Go, Docker, make/dapper, git remotes, clean tree"
+  exit "$EXIT_OK"
+fi
+
+# When plan-mode is enabled, run lightweight plan-mode prereqs (non-fatal warnings)
+check_plan_mode_prerequisites() {
+  # Only act if plan-mode enabled
+  if [ "$PLAN_MODE" != true ]; then
+    return
+  fi
+
+  # Verify pantoh-style plan-mode prerequisites (fatal if missing)
+  local plan_doc="AGENTS.d/plan-and-delegation.md"
+  local plan_gate_skill=".opencode/skills/plan-gate/SKILL.md"
+  local plan_gate_script=".opencode/skills/plan-gate/plan_gate.sh"
+
+  if [ ! -f "$plan_doc" ]; then
+    die "plan-mode requires $plan_doc"
+  fi
+  if ! grep -q "Plan Step Contract" "$plan_doc" 2>/dev/null; then
+    die "plan-mode check failed: missing Plan Step Contract marker in $plan_doc"
+  fi
+  if [ ! -f "$plan_gate_skill" ]; then
+    die "plan-mode requires $plan_gate_skill"
+  fi
+  if [ ! -f "$plan_gate_script" ]; then
+    die "plan-mode requires $plan_gate_script"
+  fi
+
+  # If boulder state exists, inspect active_plan and warn if it references a missing file
+  local bfile=".sisyphus/boulder.json"
+  if [ ! -f "$bfile" ]; then
+    return
+  fi
+
+  # Extract the active_plan value from the JSON file (simple sed-based parse)
+  local active
+  active=$(sed -n 's/.*"active_plan"[[:space:]]*:[[:space:]]*"\([^" ]*\)".*/\1/p' "$bfile" || true)
+  if [ -n "$active" ]; then
+    if [ ! -f "$active" ]; then
+      warn ".sisyphus/boulder.json active_plan points to missing file: $active"
+    fi
+  fi
+}
+
+check_plan_mode_prerequisites
+
+# If running in dry-run after executing plan-mode prereqs, exit early to avoid
+# performing environment checks that may fail in CI/local without required tools.
+if [ "$DRY_RUN" = true ]; then
+  info "Dry-run (plan-mode): performed plan-mode prereqs"
   exit "$EXIT_OK"
 fi
 
