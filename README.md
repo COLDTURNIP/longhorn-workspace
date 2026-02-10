@@ -119,7 +119,7 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 ### Available Commands
 
-- **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run`, `--json`, `--force` as needed)
+- **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run` and `--json` as needed)
   - Example: "/repo-init --dry-run" or "run /repo-init to refresh the workspace"
 
 ### Available Skills

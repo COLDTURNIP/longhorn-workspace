@@ -20,7 +20,6 @@ Options:
   --json              Emit JSON summary to stdout only (silences human logs on stdout)
   --json-log          Deprecated alias for --json
   --execute           Perform network and filesystem actions (default)
-  --force             Permit destructive cleanup (branch deletions)
   --no-color          Disable color output (not used in this script)
   -n, --dry-run       Dry-run mode (no changes)
   -h, --help          Show this help
@@ -69,33 +68,22 @@ if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
     warn "refs/remotes/upstream/HEAD not found; continuing without upstream tracking"
 fi
 
-detect_upstream_default_branch() {
+detect_local_default_branch() {
     local repo_label=$1 branch=""
 
-    branch=$(git symbolic-ref -q refs/remotes/upstream/HEAD 2>/dev/null || true)
+    branch=$(git symbolic-ref -q --short HEAD 2>/dev/null || true)
     if [ -n "$branch" ]; then
-        echo "${branch##*/}"
+        echo "$branch"
         return 0
     fi
 
-    warn "Unable to read upstream HEAD via 'git remote show'; trying git remote set-head --auto" >&2
-    if git remote set-head upstream --auto >/dev/null 2>&1; then
-        branch=$(git symbolic-ref -q refs/remotes/upstream/HEAD 2>/dev/null || true)
-        if [ -n "$branch" ]; then
-            echo "${branch##*/}"
-            return 0
-        fi
+    branch=$(git branch --show-current 2>/dev/null || true)
+    if [ -n "$branch" ]; then
+        echo "$branch"
+        return 0
     fi
 
-    while IFS= read -r marker refname target; do
-        if [ "$marker" = "ref:" ] && [ -n "$refname" ]; then
-            branch=${refname#refs/heads/}
-            echo "$branch"
-            return 0
-        fi
-    done < <(git ls-remote --symref upstream HEAD 2>/dev/null || true)
-
-    error "Unable to determine upstream default branch for ${repo_label:-repository}; set it manually with 'git remote set-head upstream --auto'"
+    error "Unable to determine local default branch for ${repo_label:-repository}"
     return 1
 }
 
@@ -104,7 +92,6 @@ if [ ! -f "$REPO_LIST" ]; then
 fi
 
 info "Dry-run mode: $DRY_RUN"
-info "Force mode: $FORCE"
 
 RESULT_DIR=$(mktemp -d)
 cleanup_results() {
@@ -150,14 +137,13 @@ run_cmd() {
 
 init_repo() {
     local entry=$1 account=$2 reponame=$3 target_path=$4 result_file=$5
-    local upstream_url main_branch
+    local upstream_url default_branch
 
     if [ "$DRY_RUN" = true ]; then
         info "[DRY-RUN] Preparing to clone $entry from upstream"
         info "[DRY-RUN] git clone \"https://github.com/${account}/${reponame}.git\" \"$target_path\" --origin upstream"
-        info "[DRY-RUN] cd \"$target_path\" && detect upstream default branch"
-        info "[DRY-RUN] cd \"$target_path\" && git switch -c upstream upstream/<branch>"
-        info "[DRY-RUN] cd \"$target_path\" && delete non-upstream branches (requires --force during execute)"
+        info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
+        info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
         write_result "$result_file" "dry-run" "$entry" "planned"
         return 0
     fi
@@ -171,32 +157,24 @@ init_repo() {
     local subshell_rc
     (
         cd "$target_path"
-        main_branch=$(detect_upstream_default_branch "$entry") || exit 2
-        info "Detected upstream default branch: $main_branch"
-        git remote set-head upstream "$main_branch" >/dev/null 2>&1 || warn "Unable to set upstream HEAD explicitly for $entry"
-        if ! run_cmd "git switch -c upstream \"upstream/$main_branch\""; then
-            exit 3
+        default_branch=$(detect_local_default_branch "$entry") || exit 2
+        info "Detected local default branch: $default_branch"
+        if [ "$default_branch" != "upstream" ]; then
+            if ! run_cmd "git branch -m \"$default_branch\" upstream"; then
+                exit 3
+            fi
         fi
 
-        if [ "$FORCE" = true ]; then
-            while IFS= read -r branch; do
-                branch=${branch##*/}
-                if [ "$branch" != "upstream" ]; then
-                    if ! run_cmd "git branch -D \"$branch\""; then
-                        exit 5
-                    fi
-                fi
-            done < <(git branch --format='%(refname:short)')
-        else
-            warn "Skipping branch cleanup for $entry (run with --force to delete non-upstream branches)"
+        if ! git show-ref --verify --quiet refs/heads/upstream; then
+            exit 4
         fi
     )
     subshell_rc=$?
     if [ "$subshell_rc" -ne 0 ]; then
         case "$subshell_rc" in
-            2) write_result "$result_file" "failed" "$entry" "unable to detect upstream default branch" ;;
-            3) write_result "$result_file" "failed" "$entry" "unable to create upstream branch" ;;
-            5) write_result "$result_file" "failed" "$entry" "failed to delete extra branches" ;;
+            2) write_result "$result_file" "failed" "$entry" "unable to detect local default branch" ;;
+            3) write_result "$result_file" "failed" "$entry" "unable to rename default branch to upstream" ;;
+            4) write_result "$result_file" "failed" "$entry" "upstream branch missing after rename" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
