@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../skills/lib/python_runtime.sh"
+
 SCRIPT_NAME=$(basename "$0")
 EXIT_OK=0
 EXIT_ARG=2
@@ -68,8 +71,12 @@ if [ "$DRY_RUN" = true ]; then
   exit "$EXIT_OK"
 fi
 
-# Run an inline Python3 checker. Script is read-only and reports duplicate keys.
-python3 - "$@" "${FILES[@]}" <<'PY'
+if ! resolve_python_command; then
+  exit "$EXIT_FAIL"
+fi
+
+# Run an inline Python checker. Script is read-only and reports duplicate keys.
+python_cmd - "$@" "${FILES[@]}" <<'PY'
 import re
 import sys
 

@@ -11,10 +11,12 @@ The workspace integrates AI-powered development tools through OpenCode and Oh-My
 ## Required Toolchain
 
 **For OpenCode + Oh-My-OpenCode:**
+
 - OpenCode extension (AI-powered development assistant)
 - Oh-My-OpenCode plugin (provides additional agent design capabilities for OpenCode)
 
 **For Longhorn Development:**
+
 - Git
 - Docker (for Dapper-based builds)
 - Go 1.20+ (for native Go development)
@@ -113,6 +115,7 @@ bash .opencode/commands/repo-init.sh             # Execute (default)
 ```
 
 To add your personal fork to a repository:
+
 ```bash
 cd repo/[repo-name]
 git remote add origin https://github.com/[your-account]/[repo-name]

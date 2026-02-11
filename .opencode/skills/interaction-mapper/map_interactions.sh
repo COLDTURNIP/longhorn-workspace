@@ -44,7 +44,21 @@ fi
 
 # --- Phase 1: CRD-Controller Mapping ---
 info "[INFO] Phase 1: Mapping CRDs via register.go"
-CRD_WHITELIST=$(grep -rE "&\w+\{\}" repo/longhorn-manager/pkg/apis/longhorn repo/longhorn-manager/k8s/pkg/apis/longhorn 2>/dev/null | grep "register.go" | sed -E 's/.*&(\w+)\{\}.*/\1/' | grep -v "List$" | sort -u)
+# Build a list of existing CRD api directories to avoid grep failing under set -euo pipefail
+CRD_API_DIRS=()
+for d in repo/longhorn-manager/pkg/apis/longhorn repo/longhorn-manager/k8s/pkg/apis/longhorn; do
+  if [ -d "$d" ]; then
+    CRD_API_DIRS+=("$d")
+  fi
+done
+if [ ${#CRD_API_DIRS[@]} -eq 0 ]; then
+  warn "No CRD api directories found; CRD whitelist will be empty"
+  CRD_WHITELIST=""
+else
+  # Use printf to build args safely for grep; ignore grep exit status when no matches
+  CRD_WHITELIST=$(grep -rE "&\w+\{\}" "${CRD_API_DIRS[@]}" 2>/dev/null || true)
+  CRD_WHITELIST=$(printf "%s" "$CRD_WHITELIST" | grep "register.go" | sed -E 's/.*&(\w+)\{\}.*/\1/' | grep -v "List$" | sort -u || true)
+fi
 CONTROLLER_FILES=$(find repo/longhorn-manager/controller -name "*_controller.go" ! -name "base_controller.go" ! -name "*_test.go")
 TMP_CRD=$(mktemp)
 {
