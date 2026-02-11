@@ -35,15 +35,20 @@ workspace-root/
     commands/                   (OpenCode slash commands)
       repo-init.md              (/repo-init command template)
       repo-init.sh              (Executable command script)
+      yaml-duplicate-key-check.md   (/yaml-duplicate-key-check command template)
+      yaml-duplicate-key-check.sh   (Executable command script)
     skills/                     (AI skills)
-      interaction-mapper/       (Architectural mapping)
-      repo-navigator/           (Code navigation)
-      longhorn-build-system/    (Build system expertise)
-      sync-crd-helm/            (CRD/Helm synchronization)
       ascii-scanner/            (ASCII policy enforcement)
-      ticket-sanitizer/         (Ticket validation)
-      support-bundle-analysis/  (Diagnostics)
+      check-test-diff/          (Go test diff guard)
+      interaction-mapper/       (Architectural mapping)
+      longhorn-build-system/    (Build system expertise)
       longhorn-user-docs/       (Documentation assistance)
+      plan-gate/                (Plan contract linting)
+      repo-navigator/           (Code navigation)
+      support-bundle-analysis/  (Diagnostics)
+      sync-crd-helm/            (CRD/Helm synchronization)
+      ticket-sanitizer/         (Ticket validation)
+      verify-setup/             (Workspace setup verification)
   repo/                         (all Longhorn repositories)
     repo-list                   (List of repositories to clone - used by /repo-init command)
     backing-image-manager/      (Team-owned component)
@@ -122,32 +127,44 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 - **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run` and `--json` as needed)
   - Example: "/repo-init --dry-run" or "run /repo-init to refresh the workspace"
 
+- **/yaml-duplicate-key-check**: Detect duplicate YAML keys in one or more files (read-only; exits non-zero when violations are found)
+  - Example: "/yaml-duplicate-key-check repo/longhorn/chart/values.yaml" or "run /yaml-duplicate-key-check --dry-run repo/longhorn/chart/values.yaml"
+
 ### Available Skills
-
-- **interaction-mapper**: Generate architectural maps showing component interactions
-  - Example: "map the interactions between components" or "use interaction-mapper to analyze the architecture"
-
-- **repo-navigator**: Navigate and search across multiple repositories
-  - Example: "use repo-navigator to find VolumeController implementation"
-
-- **longhorn-build-system**: Build system expertise for various toolchains
-  - Example: "use longhorn-build-system skill to build longhorn-manager"
-
-- **sync-crd-helm**: Synchronize CRD definitions with Helm charts
-  - Example: "use sync-crd-helm to update Helm chart with latest CRDs"
 
 - **ascii-scanner**: Scan and enforce ASCII-only policy
   - Example (repo/*): "use ascii-scanner on changed files under repo/<repo-name>, excluding vendor/generated"
   - Example (non-repo): "use ascii-scanner to check specific files outside repo/"
 
-- **ticket-sanitizer**: Validate and sanitize ticket information
-  - Example: "use ticket-sanitizer to validate this issue description"
+- **check-test-diff**: Guard against accidental risky changes to Go test files in git diff
+  - Example: "use check-test-diff to review test-file changes in repo/longhorn-manager"
+
+- **interaction-mapper**: Generate architectural maps showing component interactions
+  - Example: "map the interactions between components" or "use interaction-mapper to analyze the architecture"
+
+- **longhorn-build-system**: Build system expertise for various toolchains
+  - Example: "use longhorn-build-system skill to build longhorn-manager"
+
+- **longhorn-user-docs**: Assist with user documentation
+  - Example: "use longhorn-user-docs skill to update documentation"
+
+- **plan-gate**: Lint execution plans for required step contract fields
+  - Example: "use plan-gate to validate .sisyphus/plans/my-plan.md"
+
+- **repo-navigator**: Navigate and search across multiple repositories
+  - Example: "use repo-navigator to find VolumeController implementation"
 
 - **support-bundle-analysis**: Analyze Longhorn support bundles
   - Example: "use support-bundle-analysis to diagnose this support bundle"
 
-- **longhorn-user-docs**: Assist with user documentation
-  - Example: "use longhorn-user-docs skill to update documentation"
+- **sync-crd-helm**: Synchronize CRD definitions with Helm charts
+  - Example: "use sync-crd-helm to update Helm chart with latest CRDs"
+
+- **ticket-sanitizer**: Validate and sanitize ticket information
+  - Example: "use ticket-sanitizer to validate this issue description"
+
+- **verify-setup**: Verify local workspace/toolchain readiness before implementation
+  - Example: "use verify-setup to validate workspace prerequisites"
 
 ### Tips for Using Skills
 
