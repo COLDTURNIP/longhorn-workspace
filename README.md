@@ -18,8 +18,8 @@ Follow [QUICKSTART.md](QUICKSTART.md) for a quick setup guide to get started wit
 
 **For OpenCode + Oh-My-OpenCode:**
 
-- OpenCode extension (AI-powered development assistant)
-- Oh-My-OpenCode plugin (provides additional agent design capabilities for OpenCode)
+- [OpenCode](https://opencode.ai/docs) (AI-powered development assistant)
+- [Oh-My-OpenCode](https://github.com/code-yeongyu/oh-my-opencode) plugin (provides additional agent design capabilities for OpenCode)
 
 **For Longhorn Development:**
 
@@ -89,9 +89,20 @@ workspace-root/
 
 ## Initialization
 
+Clone the workspace repository.
+
+```bash
+git clone https://github.com/COLDTURNIP/longhorn-workspace.git
+cd longhorn-workspace
+```
+
 ### Starts with AI Agent
 
-The fastest way to initialize the workspace is using the AI agent:
+The fastest way to initialize the workspace is using the AI agent. Launch OpenCode in the root of the workspace:
+
+```bash
+opencode .
+```
 
 **Initialization Prompt:**
 
@@ -121,10 +132,6 @@ When you provide this prompt to the AI agent:
 If you prefer manual setup:
 
 ```bash
-# Clone the workspace repository
-git clone https://github.com/your-account/longhorn-workspace.git
-cd longhorn-workspace
-
 # Initialize repositories using the /init-workspace command
 bash .opencode/commands/init-workspace.sh --dry-run  # Preview actions
 bash .opencode/commands/init-workspace.sh            # Execute (default)
@@ -135,6 +142,7 @@ To add your personal fork to a repository:
 ```bash
 cd repo/[repo-name]
 git remote add origin https://github.com/[your-account]/[repo-name]
+git fetch origin
 ```
 
 ## Working with Skills
