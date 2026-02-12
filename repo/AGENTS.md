@@ -46,7 +46,7 @@ You MUST identify the repository type before modifying code to determine the all
 * **Native Longhorn Components (Type A and B)**
     * *Constraint*: NEVER run "go build" or "go test" directly on the host. These repos rely on "scripts/" wrapping Dapper.
     * *Command: Build*
-        - Use: `make`
+        - Use: `make build`
         - Action: Compiles binaries inside Dapper container.
     * *Command: Test*
         - Use: `make test`
@@ -54,9 +54,12 @@ You MUST identify the repository type before modifying code to determine the all
     * *Command: Validate*
         - Use: `make validate`
         - Action: Runs linting and static analysis.
-    * *Command: Clean*
-        - Use: `make clean`
-        - Action: Removes artifacts.
+    * *Command: Package*
+        - Use: `make package`
+        - Action: Package binaries into a container image.
+    * *Command: CI*
+        - Use: `make`
+        - Action: Build, validate, test, and package.
 
 * **Upstream and Others (Type C and Integration)**
     * *Constraint*: Do not assume "scripts/" exists.
