@@ -3,8 +3,8 @@ repo/*
 !repo/repo-list
 ticket/*
 !ticket/AGENTS.md
-context/indices/*
-!context/indices/.placeholder
+context/*
+!context/.placeholder
 
 # OpenCode
 .opencode/*

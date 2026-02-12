@@ -28,13 +28,6 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   exit "$EXIT_ARG"
 fi
 
-if ! git remote get-url upstream >/dev/null 2>&1; then
-  warn "Missing upstream remote; continuing"
-elif ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
-  warn "Cannot resolve refs/remotes/upstream/HEAD; run 'git remote set-head upstream --auto' later"
-fi
-defensive_record_safety_ref
-
 INDEX_DIR="context/indices"
 if [ "$DRY_RUN" = true ]; then
   info "[DRY-RUN] mkdir -p $INDEX_DIR"
@@ -93,7 +86,7 @@ TMP_RPC=$(mktemp)
         cut -d'/' -f2 | sort -u | xargs | tr ' ' ',')
     if [ "$FIRST" = false ]; then echo ","; fi
     echo "  \"$svc\": {"
-    echo "    \"definition\": \"@${PROTO_PATH#repo/}\"," 
+    echo "    \"definition\": \"@${PROTO_PATH#repo/}\","
     echo "    \"clients\": \"$CLIENT_REPOS\""
     echo "  }"
     FIRST=false
@@ -120,4 +113,4 @@ write_index "$TMP_RPC" "$INDEX_DIR/rpc-topology.json"
 
 rm -f "$TMP_CRD" "$TMP_RPC"
 
-info "[SUCCESS] Architectural maps updated." 
+info "[SUCCESS] Architectural maps updated."
