@@ -8,6 +8,12 @@ This workspace provides a unified environment for developing across Longhorn's m
 
 The workspace integrates AI-powered development tools through OpenCode and Oh-My-OpenCode, providing intelligent assistance for code navigation, repository initialization, build system management, and more.
 
+**Note:** Though the workspace is optimized for use with OpenCode and Oh-My-OpenCode agents, the `AGENTS**.md` files, skills, and commands, are still available for other agentic development tools like Codex and Claude Code. Just create a soft link from `AGENTS.md` and `.opencode` to the appropriate agent instruction file for your tool of choice.
+
+## TL;DR: Quick Start
+
+Follow [QUICKSTART.md](QUICKSTART.md) for a quick setup guide to get started with OpenCode and the Longhorn workspace.
+
 ## Required Toolchain
 
 **For OpenCode + Oh-My-OpenCode:**
@@ -35,6 +41,8 @@ workspace-root/
   AGENTS.md                     (AI agent instructions - not for commit)
   .opencode/                    (local development state)
     commands/                   (OpenCode slash commands)
+      init-workspace.md         (/init-workspace command template)
+      init-workspace.sh         (Executable command script)
       repo-init.md              (/repo-init command template)
       repo-init.sh              (Executable command script)
       yaml-duplicate-key-check.md   (/yaml-duplicate-key-check command template)
@@ -52,7 +60,7 @@ workspace-root/
       ticket-sanitizer/         (Ticket validation)
       verify-setup/             (Workspace setup verification)
   repo/                         (all Longhorn repositories)
-    repo-list                   (List of repositories to clone - used by /repo-init command)
+    repo-list                   (List of repositories to clone - used by /init-workspace command)
     backing-image-manager/      (Team-owned component)
     cli/                        (Team-owned component)
     longhorn-engine/            (Team-owned component)
@@ -76,29 +84,37 @@ workspace-root/
     longhorn-ui/                (Packaging - Frontend)
     longhorn-tests/             (Integration tests)
     dep-versions/               (Version coordination)
-  ticket/                       (task-specific workspace)
+  ticket/                       (task-specific workspace for case studies)
 ```
 
 ## Initialization
 
-### Quick Start with AI Agent
+### Starts with AI Agent
 
 The fastest way to initialize the workspace is using the AI agent:
 
 **Initialization Prompt:**
+
 ```
-init workspace
+initialize the workspace
 ```
 
-When you provide this prompt to the OpenCode AI agent:
-1. The agent automatically runs the `/repo-init` command
-2. All repositories from `repo/repo-list` are cloned into the `repo/` directory
+Or, use a direct command explicitly:
+
+```
+/init-workspace
+```
+
+When you provide this prompt to the AI agent:
+
+1. The agent automatically runs the `/init-workspace` command to set up the Git source code repositories based on the list in `repo/repo-list`
+2. All component source repositories from `repo/repo-list` are cloned into the `repo/` directory
 3. Each repository is configured with:
    - `upstream` remote pointing to the official Longhorn repository
    - Local `upstream` branch tracking the upstream default branch (main or master)
-4. The agent then invokes `interaction-mapper` to generate architectural indices
+4. The command runs index generation (currently `interaction-mapper`) under `context/indices/` so the agent can understand cross-repo architecture for navigation and implementation tasks.
 
-**Note:** The `/repo-init` command only sets up upstream remotes. You are responsible for managing your personal fork configuration if you plan to contribute code.
+**Note:** The `/init-workspace` command sets up upstream remotes and local upstream branches. You are responsible for managing your personal fork configuration if you plan to contribute code.
 
 ### Manual Initialization (Alternative)
 
@@ -109,9 +125,9 @@ If you prefer manual setup:
 git clone https://github.com/your-account/longhorn-workspace.git
 cd longhorn-workspace
 
-# Initialize repositories using the /repo-init command
-bash .opencode/commands/repo-init.sh --dry-run   # Preview actions
-bash .opencode/commands/repo-init.sh             # Execute (default)
+# Initialize repositories using the /init-workspace command
+bash .opencode/commands/init-workspace.sh --dry-run  # Preview actions
+bash .opencode/commands/init-workspace.sh            # Execute (default)
 ```
 
 To add your personal fork to a repository:
@@ -121,14 +137,17 @@ cd repo/[repo-name]
 git remote add origin https://github.com/[your-account]/[repo-name]
 ```
 
-## Working with OpenCode Skills
+## Working with Skills
 
-The workspace includes specialized AI skills under `.opencode/skills/` that automate common development tasks. You can ask the OpenCode agent to use these skills for various operations:
+The workspace includes specialized AI skills under `.opencode/skills/` that automate common development tasks. You can ask the agent to use these skills for various operations:
 
 ### Available Commands
 
+- **/init-workspace**: Initialize all repositories from `repo/repo-list`, configure `upstream` remotes and local `upstream` branches, then generate architectural indices (execute by default; use `--dry-run` and `--json` as needed)
+  - Example: "/init-workspace --dry-run" or "run /init-workspace to prepare this workspace"
+
 - **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run` and `--json` as needed)
-  - Example: "/repo-init --dry-run" or "run /repo-init to refresh the workspace"
+  - Example: "/repo-init --dry-run" or "run /repo-init when you only want repository setup"
 
 - **/yaml-duplicate-key-check**: Detect duplicate YAML keys in one or more files (read-only; exits non-zero when violations are found)
   - Example: "/yaml-duplicate-key-check repo/longhorn/chart/values.yaml" or "run /yaml-duplicate-key-check --dry-run repo/longhorn/chart/values.yaml"
@@ -136,7 +155,7 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 ### Available Skills
 
 - **ascii-scanner**: Scan and enforce ASCII-only policy
-  - Example (repo/*): "use ascii-scanner on changed files under repo/<repo-name>, excluding vendor/generated"
+  - Example (repo/\*): "use ascii-scanner on changed files under repo/<repo-name>, excluding vendor/generated"
   - Example (non-repo): "use ascii-scanner to check specific files outside repo/"
 
 - **check-test-diff**: Guard against accidental risky changes to Go test files in git diff
@@ -177,10 +196,10 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 2. **Task-based requests**: Describe what you want to accomplish
    - The agent will automatically select appropriate automation
-   - Example: "initialize the workspace" will trigger `/repo-init`
+   - Example: "initialize the workspace" will trigger `/init-workspace`
 
 3. **Multiple skills**: The agent can chain multiple skills
-   - Example: "init workspace and analyze the architecture" will run `/repo-init` and invoke interaction-mapper
+   - Example: "init workspace and analyze the architecture" will run `/init-workspace`
 
 4. **Skill documentation**: Each skill has documentation in `.opencode/skills/[skill-name]/SKILL.md`
    - Example: "show me the repo-navigator skill documentation"
