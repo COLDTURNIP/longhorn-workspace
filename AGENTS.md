@@ -24,7 +24,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - **Force push** forbidden by default; if absolutely required, only `git push --force-with-lease origin <branch>` with explicit user approval. See `AGENTS.d/force-push-policy.md`.
 - **Signoff** (`git commit -s`) disabled by default; follow repo-level instructions (e.g., repo/AGENTS Section 5) when mandated.
 - **Minimal scope**: change only what the request requires; upstream-derived repos (csi-*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.
-- **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/repo-init` (defaults to executing; offer `--dry-run` if they want a preview) and refresh `context/indices/*` with `interaction-mapper` after cloning.
+- **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/init-workspace` (defaults to executing; offer `--dry-run` if they want a preview). This command already covers repository initialization and index generation.
 - **Tests**: do not edit existing test cases in `*_test.go` files unless the user explicitly requests changes to that specific test case or file.
 
 ## Toolchain Quick Reference
