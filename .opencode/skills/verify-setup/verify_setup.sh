@@ -57,7 +57,7 @@ check_plan_mode_prerequisites() {
     return
   fi
 
-  # Verify pantoh-style plan-mode prerequisites (fatal if missing)
+  # Verify plan-mode prerequisites (fatal if missing)
   local plan_doc="AGENTS.d/plan-and-delegation.md"
   local plan_gate_skill=".opencode/skills/plan-gate/SKILL.md"
   local plan_gate_script=".opencode/skills/plan-gate/plan_gate.sh"

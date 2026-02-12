@@ -49,13 +49,12 @@ check_required_contract() {
   require_contains "Target:" "Target:"
   require_contains "Verify Command:" "Verify Command:"
   require_contains "Done Criteria:" "Done Criteria:"
-  require_contains "Pantoh Reference:" "Pantoh Reference:"
   require_contains "Writing purpose:" "Writing purpose:"
   require_contains "Global Hard Rules" "Global Hard Rules"
   require_contains "Forbidden references" "Forbidden references"
 }
 
-# Hotfix Retry Prompt block validation adapted from pantoh
+# Hotfix Retry Prompt block validation
 check_hotfix_block() {
   if ! grep -q "Hotfix Retry Prompt" "$PLAN_PATH"; then
     return

@@ -1,6 +1,6 @@
 ---
 name: plan-gate
-description: Lints Longhorn markdown execution plans for required step contract fields. Minimal contract; does not enforce pantoh-only close gates.
+description: Lints Longhorn markdown execution plans for required step contract fields. Minimal contract.
 compatibility: opencode
 ---
 
@@ -8,7 +8,7 @@ compatibility: opencode
 
 ## Purpose
 
-Validate Longhorn planning documents before execution. This gate enforces the presence of required step contract fields. It does not enforce pantoh-specific close gate or approval policies.
+Validate Longhorn planning documents before execution. This gate enforces the presence of required step contract fields.
 
 ## Usage
 
@@ -34,12 +34,9 @@ The following fields/headings must be present in the plan:
 - `Target:`
 - `Verify Command:`
 - `Done Criteria:`
-- `Pantoh Reference:`
 - `Writing purpose:`
 - `Global Hard Rules`
 - `Forbidden references`
-
-No pantoh-specific close gate or approval gate checks are enforced in this Longhorn skill.
 
 ## Hotfix Retry Prompt Gate
 
