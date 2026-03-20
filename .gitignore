@@ -16,5 +16,11 @@ context/*
 !.opencode/commands/**
 .sisyphus
 
+# Claude Code
+.claude/*
+
+# Pi
+.omp/*
+
 # OpenSpec
 openspec
