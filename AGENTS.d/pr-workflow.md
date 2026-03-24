@@ -1,5 +1,19 @@
 # PR Workflow (Detailed)
 
+## Worktree Restriction for `repo/*` Subrepos
+
+**Do NOT use `git worktree` inside any `repo/*` subrepo.**
+
+Rancher Dapper mounts the repository root into an isolated build container using the on-disk path. A worktree places the working tree at a different path, which breaks Dapper's bind-mount and Make targets (`make build`, `make test`, `make validate`) will fail or operate on the wrong tree.
+
+**Use working branches instead:**
+```sh
+# Create and switch to a feature branch (inside the subrepo directory)
+git switch -c <storyid>-brief upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
+```
+
+This restriction applies to all Dapper-based repos (longhorn-manager, longhorn-engine, instance-manager, share-manager, etc.). It does NOT apply to the workspace root or non-Dapper repos where worktrees are safe.
+
 ## Preparation
 - Clean working tree: `git status --porcelain && git diff --exit-code && git diff --cached --exit-code`
 - Fetch upstream: `git fetch upstream`

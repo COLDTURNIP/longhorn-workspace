@@ -7,6 +7,7 @@
   - Validate: `make validate`
   - Clean: `make clean`
 - Do NOT run `go build`/`go test` directly on host.
+- Do NOT use `git worktree` in these repos. Dapper binds the build container to the repo root path; worktrees break this bind-mount. Use working branches instead. See `AGENTS.d/pr-workflow.md`.
 
 ## Type C (CSI Sidecars / Upstream)
 - Do not assume Dapper. Check repo Makefile or release-tools.

@@ -26,6 +26,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - **Minimal scope**: change only what the request requires; upstream-derived repos (csi-*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.
 - **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/init-workspace` (defaults to executing; offer `--dry-run` if they want a preview). This command already covers repository initialization and index generation.
 - **Tests**: do not edit existing test cases in `*_test.go` files unless the user explicitly requests changes to that specific test case or file.
+- **No git worktrees in `repo/*`**: Rancher Dapper binds the build container to the repo root directory; git worktrees place the working tree at a different path and break Dapper's assumptions. For `repo/*` subrepos, always use working branches (`git switch -c`) instead of worktrees. Details -> `AGENTS.d/pr-workflow.md`.
 
 ## Toolchain Quick Reference
 - Native Longhorn repos (manager, engine, instance-manager, share-manager, etc.): run `make build`, `make test`, `make validate` (Dapper). Do **not** run `go build`/`go test` directly.
