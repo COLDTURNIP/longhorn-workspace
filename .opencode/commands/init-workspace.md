@@ -8,7 +8,7 @@ After execution, the agent must summarize:
 
 1. Repository location is `repo/` (see `AGENTS.md` context loading and repo setup guidance).
 2. Current repositories under `repo/`.
-3. Each initialized repository uses `upstream` as the git remote name, and local branch `upstream` aligns with the upstream default branch (`main` or `master`) per repo-init behavior.
+3. Each initialized repository uses `upstream` as the canonical git remote and, if jj (Jujutsu) is available, configures jj `trunk()` to `main@upstream` or `master@upstream` plus jj fetch/push defaults for upstream/origin workflows.
 4. Repository definitions come from `repo/repo-list.json` (path key -> `upstream` required, `origin` optional).
 
 ```bash
@@ -19,3 +19,5 @@ Options:
 
 - --dry-run   # Preview actions without making changes
 - --json      # Output machine-readable JSON
+
+When `--json` is used, `repo_init.results[]` follows one schema and includes `repo`, `status`, `message`, `trunk_branch`, `origin_tracking`, and `main_bookmark_state`.

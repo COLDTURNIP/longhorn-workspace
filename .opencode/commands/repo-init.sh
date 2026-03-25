@@ -67,45 +67,61 @@ fi
 REPO_LIST="repo/repo-list.json"
 REPO_DIR="repo"
 
-if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
-    warn "refs/remotes/upstream/HEAD not found; continuing without upstream tracking"
-fi
+detect_upstream_trunk_branch() {
+    local has_main=false has_master=false
+    local ls_remote_output line ref
 
-detect_local_default_branch() {
-    local repo_label=$1 branch=""
+    if git show-ref --verify --quiet refs/remotes/upstream/main; then
+        has_main=true
+    fi
+    if git show-ref --verify --quiet refs/remotes/upstream/master; then
+        has_master=true
+    fi
 
-    branch=$(git symbolic-ref -q --short HEAD 2>/dev/null || true)
-    if [ -n "$branch" ]; then
-        echo "$branch"
+    if [ "$has_main" = true ]; then
+        printf 'main\n'
+        return 0
+    fi
+    if [ "$has_master" = true ]; then
+        printf 'master\n'
         return 0
     fi
 
-    branch=$(git branch --show-current 2>/dev/null || true)
-    if [ -n "$branch" ]; then
-        echo "$branch"
+    ls_remote_output=$(git ls-remote --heads upstream main master 2>/dev/null || true)
+    if [ -n "$ls_remote_output" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            ref=${line#*refs/heads/}
+            case "$ref" in
+                main)
+                    has_main=true
+                    ;;
+                master)
+                    has_master=true
+                    ;;
+            esac
+        done <<< "$ls_remote_output"
+    fi
+
+    if [ "$has_main" = true ]; then
+        printf 'main\n'
+        return 0
+    fi
+    if [ "$has_master" = true ]; then
+        printf 'master\n'
         return 0
     fi
 
-    error "Unable to determine local default branch for ${repo_label:-repository}"
     return 1
 }
 
-detect_upstream_default_branch() {
-    local ref=""
+jj_track_bookmark_remote() {
+    local bookmark_name=$1 remote_name=$2
 
-    ref=$(git symbolic-ref refs/remotes/upstream/HEAD 2>/dev/null || true)
-    if [ -z "$ref" ]; then
-        return 1
+    if run_cmd "jj bookmark track \"$bookmark_name\" --remote=\"$remote_name\""; then
+        return 0
     fi
 
-    case "$ref" in
-        refs/remotes/upstream/*)
-            printf '%s\n' "${ref#refs/remotes/upstream/}"
-            return 0
-            ;;
-    esac
-
-    return 1
+    run_cmd "jj bookmark track \"${bookmark_name}@${remote_name}\""
 }
 
 if [ ! -f "$REPO_LIST" ]; then
@@ -122,7 +138,11 @@ trap cleanup_results EXIT
 
 write_result() {
     local result_file=$1 status=$2 entry=$3 message=$4
-    printf '%s|%s|%s\n' "$status" "$entry" "$message" > "$result_file"
+    local trunk_branch=${5:-}
+    local origin_tracking=${6:-}
+    local main_bookmark_state=${7:-}
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        "$status" "$entry" "$message" "$trunk_branch" "$origin_tracking" "$main_bookmark_state" > "$result_file"
 }
 
 trim_line() {
@@ -213,7 +233,11 @@ run_cmd() {
 
 init_repo() {
     local entry=$1 upstream_repo_url=$2 origin_repo_url=$3 target_path=$4 result_file=$5 existing_repo=$6
-    local upstream_url origin_url default_branch upstream_trunk
+    local upstream_url origin_url upstream_trunk summary_message
+    local has_origin_remote=false has_main_bookmark=false
+    local dry_origin_tracking dry_main_bookmark_state
+    local metadata_file metadata_line
+    local result_trunk_branch result_origin_tracking result_main_bookmark_state
     local parent_dir
 
     upstream_url="$upstream_repo_url"
@@ -224,6 +248,12 @@ init_repo() {
     parent_dir=$(dirname "$target_path")
 
     if [ "$DRY_RUN" = true ]; then
+        dry_origin_tracking="not-configured"
+        if [ -n "$origin_repo_url" ]; then
+            dry_origin_tracking="planned-track-if-origin-trunk-exists"
+        fi
+        dry_main_bookmark_state="planned-reset-to-trunk"
+
         if [ "$existing_repo" = true ]; then
             info "[DRY-RUN] Reconciling existing repository $entry at $target_path"
             info "[DRY-RUN] cd \"$target_path\" && git remote add upstream \"$upstream_url\" (or set-url if exists)"
@@ -231,30 +261,33 @@ init_repo() {
             info "[DRY-RUN] Preparing to clone $entry from upstream $upstream_repo_url"
             info "[DRY-RUN] mkdir -p \"$parent_dir\""
             info "[DRY-RUN] git clone \"$upstream_url\" \"$target_path\" --origin upstream"
-            info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
-            info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
         fi
         if [ -n "$origin_repo_url" ]; then
             info "[DRY-RUN] cd \"$target_path\" && git remote add origin \"$origin_url\" (or set-url if exists)"
         else
-            info "[DRY-RUN] cd \"$target_path\" && git remote remove origin (if exists)"
+            info "[DRY-RUN] cd \"$target_path\" && preserve existing origin remote (if present)"
         fi
         if command -v jj >/dev/null 2>&1; then
             info "[DRY-RUN] cd \"$target_path\" && jj git init --colocate ."
             if [ -n "$origin_repo_url" ]; then
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.push origin"
-                info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream <upstream-default-branch>@origin"
             else
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\"]'"
-                info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream"
+                info "[DRY-RUN] cd \"$target_path\" && jj config unset --repo git.push (if set)"
             fi
+            info "[DRY-RUN] cd \"$target_path\" && detect upstream trunk by refs/remotes/upstream/main then master (prefer main)"
+            info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <trunk-branch> --remote=upstream"
+            info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <trunk-branch> --remote=origin (if origin remote exists)"
             info "[DRY-RUN] cd \"$target_path\" && jj config set --repo 'revset-aliases.\"trunk()\"' <upstream-default-branch>@upstream"
+            info "[DRY-RUN] cd \"$target_path\" && jj bookmark set main -r trunk() --allow-backwards"
         fi
         if [ "$existing_repo" = true ]; then
-            write_result "$result_file" "dry-run" "$entry" "planned remote reconciliation"
+            write_result "$result_file" "dry-run" "$entry" "planned remote reconciliation with main reset" \
+                "auto(main>master)" "$dry_origin_tracking" "$dry_main_bookmark_state"
         else
-            write_result "$result_file" "dry-run" "$entry" "planned"
+            write_result "$result_file" "dry-run" "$entry" "planned initialization with main reset" \
+                "auto(main>master)" "$dry_origin_tracking" "$dry_main_bookmark_state"
         fi
         return 0
     fi
@@ -272,22 +305,13 @@ init_repo() {
     fi
 
     local subshell_rc
+    metadata_file="${result_file}.meta"
+    rm -f "$metadata_file"
     (
         cd "$target_path"
-        if [ "$existing_repo" = false ]; then
-            default_branch=$(detect_local_default_branch "$entry") || exit 2
-            info "Detected local default branch: $default_branch"
-            if [ "$default_branch" != "upstream" ]; then
-                if ! run_cmd "git branch -m \"$default_branch\" upstream"; then
-                    exit 3
-                fi
-            fi
-
-            if ! git show-ref --verify --quiet refs/heads/upstream; then
-                exit 4
-            fi
-        fi
-
+        result_trunk_branch=""
+        result_origin_tracking="git-only"
+        result_main_bookmark_state="git-only"
         if git remote get-url upstream >/dev/null 2>&1; then
             if ! run_cmd "git remote set-url upstream \"$upstream_url\""; then
                 exit 13
@@ -311,13 +335,18 @@ init_repo() {
 
         else
             if git remote get-url origin >/dev/null 2>&1; then
-                if ! run_cmd "git remote remove origin"; then
-                    exit 15
-                fi
+                warn "[$entry] repo-list.json has no origin URL; preserving existing origin remote"
             fi
         fi
 
+        if git remote get-url origin >/dev/null 2>&1; then
+            has_origin_remote=true
+        fi
+
         if command -v jj >/dev/null 2>&1; then
+            result_origin_tracking="not-configured"
+            result_main_bookmark_state="preserved"
+
             if [ -e .jj ] && [ ! -d .jj ]; then
                 exit 5
             fi
@@ -336,34 +365,81 @@ init_repo() {
                     exit 12
                 fi
             else
-                if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
-                    exit 7
+                if [ "$has_origin_remote" = true ]; then
+                    if ! run_cmd "jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"; then
+                        exit 7
+                    fi
+                    if ! run_cmd "jj config set --repo git.push origin"; then
+                        exit 12
+                    fi
+                    result_origin_tracking="pending-origin-trunk-check"
+                else
+                    if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
+                        exit 7
+                    fi
+                    if ! run_cmd "jj config unset --repo git.push || true"; then
+                        exit 7
+                    fi
                 fi
             fi
 
-            upstream_trunk=$(detect_upstream_default_branch || true)
-            if [ -n "$upstream_trunk" ]; then
-                if [ -n "$origin_repo_url" ] && git show-ref --verify --quiet "refs/remotes/origin/${upstream_trunk}"; then
-                    if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\" \"${upstream_trunk}@origin\""; then
-                        exit 8
-                    fi
-                else
-                    if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\""; then
-                        exit 8
-                    fi
-                fi
-                if ! run_cmd "jj config set --repo 'revset-aliases.\"trunk()\"' \"${upstream_trunk}@upstream\""; then
-                    exit 9
+            if ! run_cmd "git fetch --prune upstream"; then
+                exit 16
+            fi
+            if [ "$has_origin_remote" = true ]; then
+                if ! run_cmd "git fetch --prune origin"; then
+                    warn "[$entry] unable to fetch origin; continuing with existing origin refs"
                 fi
             fi
+
+            upstream_trunk=$(detect_upstream_trunk_branch || true)
+            if [ -z "$upstream_trunk" ]; then
+                exit 17
+            fi
+            result_trunk_branch="$upstream_trunk"
+
+            if ! run_cmd "jj config set --repo 'revset-aliases.\"trunk()\"' \"${upstream_trunk}@upstream\""; then
+                exit 9
+            fi
+            if ! jj_track_bookmark_remote "$upstream_trunk" "upstream"; then
+                exit 8
+            fi
+
+            if [ "$has_origin_remote" = true ]; then
+                if git show-ref --verify --quiet "refs/remotes/origin/${upstream_trunk}"; then
+                    if ! jj_track_bookmark_remote "$upstream_trunk" "origin"; then
+                        exit 8
+                    fi
+                    result_origin_tracking="tracked"
+                else
+                    warn "[$entry] origin/${upstream_trunk} not found; skipping origin tracking for ${upstream_trunk}"
+                    result_origin_tracking="missing-origin-${upstream_trunk}"
+                fi
+            else
+                result_origin_tracking="not-configured"
+            fi
+
+            if jj log -r 'main' -n 1 >/dev/null 2>&1; then
+                has_main_bookmark=true
+            fi
+            if ! run_cmd "jj bookmark set main -r 'trunk()' --allow-backwards"; then
+                exit 19
+            fi
+            if [ "$has_main_bookmark" = false ]; then
+                result_main_bookmark_state="created-and-reset-to-trunk"
+            else
+                result_main_bookmark_state="reset-to-trunk"
+            fi
+        else
+            result_origin_tracking="jj-unavailable"
+            result_main_bookmark_state="jj-unavailable"
         fi
+
+        printf '%s|%s|%s\n' "$result_trunk_branch" "$result_origin_tracking" "$result_main_bookmark_state" > "$metadata_file"
     )
     subshell_rc=$?
     if [ "$subshell_rc" -ne 0 ]; then
         case "$subshell_rc" in
-            2) write_result "$result_file" "failed" "$entry" "unable to detect local default branch" ;;
-            3) write_result "$result_file" "failed" "$entry" "unable to rename default branch to upstream" ;;
-            4) write_result "$result_file" "failed" "$entry" "upstream branch missing after rename" ;;
             5) write_result "$result_file" "failed" "$entry" ".jj path exists but is not a directory" ;;
             6) write_result "$result_file" "failed" "$entry" "jj git init failed" ;;
             7) write_result "$result_file" "failed" "$entry" "unable to set jj git.fetch upstream default" ;;
@@ -374,16 +450,34 @@ init_repo() {
             12) write_result "$result_file" "failed" "$entry" "unable to set jj push default remote" ;;
             13) write_result "$result_file" "failed" "$entry" "unable to configure upstream remote" ;;
             14) write_result "$result_file" "failed" "$entry" "unable to configure upstream remote" ;;
-            15) write_result "$result_file" "failed" "$entry" "unable to remove origin remote" ;;
+            16) write_result "$result_file" "failed" "$entry" "unable to fetch upstream remote" ;;
+            17) write_result "$result_file" "failed" "$entry" "unable to detect upstream trunk branch (main/master)" ;;
+            19) write_result "$result_file" "failed" "$entry" "unable to reset local jj main bookmark to trunk()" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
     fi
 
+    result_trunk_branch=""
+    result_origin_tracking=""
+    result_main_bookmark_state=""
+    if [ -f "$metadata_file" ]; then
+        IFS='|' read -r result_trunk_branch result_origin_tracking result_main_bookmark_state < "$metadata_file"
+        rm -f "$metadata_file"
+    fi
+
+    summary_message="initialized"
     if [ "$existing_repo" = true ]; then
-        write_result "$result_file" "success" "$entry" "remotes reconciled"
+        summary_message="remotes reconciled"
+    fi
+    summary_message="${summary_message}; main reset to trunk()"
+
+    if [ "$existing_repo" = true ]; then
+        write_result "$result_file" "success" "$entry" "$summary_message" \
+            "$result_trunk_branch" "$result_origin_tracking" "$result_main_bookmark_state"
     else
-        write_result "$result_file" "success" "$entry" "initialized"
+        write_result "$result_file" "success" "$entry" "$summary_message" \
+            "$result_trunk_branch" "$result_origin_tracking" "$result_main_bookmark_state"
     fi
     return 0
 }
@@ -430,8 +524,11 @@ for result_file in "${RESULT_FILES[@]}"; do
         status="failed"
         entry="<unknown>"
         message="missing result file"
+        trunk_branch=""
+        origin_tracking=""
+        main_bookmark_state=""
     else
-        IFS='|' read -r status entry message < "$result_file"
+        IFS='|' read -r status entry message trunk_branch origin_tracking main_bookmark_state < "$result_file"
     fi
     case "$status" in
         success) SUCCESS_COUNT=$((SUCCESS_COUNT + 1)) ;;
@@ -448,7 +545,15 @@ for result_file in "${RESULT_FILES[@]}"; do
     json_entry=$(json_escape "$entry")
     json_status=$(json_escape "$status")
     json_message=$(json_escape "$message")
-    JSON_ITEMS="${JSON_ITEMS}${JSON_SEP}{\"repo\":\"$json_entry\",\"status\":\"$json_status\",\"message\":\"$json_message\"}"
+    json_object="{\"repo\":\"$json_entry\",\"status\":\"$json_status\",\"message\":\"$json_message\""
+    json_trunk_branch=$(json_escape "$trunk_branch")
+    json_origin_tracking=$(json_escape "$origin_tracking")
+    json_main_bookmark_state=$(json_escape "$main_bookmark_state")
+    json_object="${json_object},\"trunk_branch\":\"$json_trunk_branch\""
+    json_object="${json_object},\"origin_tracking\":\"$json_origin_tracking\""
+    json_object="${json_object},\"main_bookmark_state\":\"$json_main_bookmark_state\""
+    json_object="${json_object}}"
+    JSON_ITEMS="${JSON_ITEMS}${JSON_SEP}${json_object}"
     JSON_SEP=','
 done
 
