@@ -117,14 +117,39 @@ Or, use a direct command explicitly:
 
 When you provide this prompt to the AI agent:
 
-1. The agent automatically runs the `/init-workspace` command to set up the Git source code repositories based on the list in `repo/repo-list`
-2. All component source repositories from `repo/repo-list` are cloned into the `repo/` directory
+1. The agent automatically runs the `/init-workspace` command to set up the Git source code repositories based on `repo/repo-list.json`
+2. All component source repositories from `repo/repo-list.json` are cloned into the `repo/` directory
 3. Each repository is configured with:
    - `upstream` remote pointing to the official Longhorn repository
    - Local `upstream` branch tracking the upstream default branch (main or master)
 4. The command runs index generation (currently `interaction-mapper`) under `context/indices/` so the agent can understand cross-repo architecture for navigation and implementation tasks.
 
 **Note:** The `/init-workspace` command sets up upstream remotes and local upstream branches. You are responsible for managing your personal fork configuration if you plan to contribute code.
+
+### Example `repo/repo-list.json`
+
+The repository definition file uses the target path under `repo/` as the key.
+Each entry must define `upstream`, and may optionally define `origin`.
+
+```json
+{
+  "longhorn-manager": {
+    "upstream": "longhorn/longhorn-manager",
+    "origin": "your-github-id/longhorn-manager"
+  },
+  "types": {
+    "upstream": "longhorn/types"
+  },
+  "csi/external-attacher": {
+    "upstream": "longhorn/csi-attacher"
+  }
+}
+```
+
+In this example:
+- `repo/longhorn-manager` clones from `longhorn/longhorn-manager` and configures personal fork `your-github-id/longhorn-manager` as `origin`.
+- `repo/types` clones from `longhorn/types` with upstream-only configuration.
+- `repo/csi/external-attacher` shows nested relative paths are supported.
 
 ### Manual Initialization (Alternative)
 
@@ -150,7 +175,7 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 ### Available Commands
 
-- **/init-workspace**: Initialize all repositories from `repo/repo-list`, configure `upstream` remotes and local `upstream` branches, then generate architectural indices (execute by default; use `--dry-run` and `--json` as needed)
+- **/init-workspace**: Initialize all repositories from `repo/repo-list.json`, configure `upstream` remotes and local `upstream` branches (and optional `origin` remotes when configured), then generate architectural indices (execute by default; use `--dry-run` and `--json` as needed)
   - Example: "/init-workspace --dry-run" or "run /init-workspace to prepare this workspace"
 
 - **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run` and `--json` as needed)

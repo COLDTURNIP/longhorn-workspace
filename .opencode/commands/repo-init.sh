@@ -14,7 +14,10 @@ usage() {
 cat <<USAGE
 Usage: $SCRIPT_NAME [options]
 
-Clone all repositories listed in repo/repo-list from upstream and keep only a local 'upstream' branch.
+Clone all repositories listed in repo/repo-list.json.
+Each key is the target relative path under repo/, and each value defines:
+  - upstream: required org/repo
+  - origin: optional org/repo personal fork
 
 Options:
   --json              Emit JSON summary to stdout only (silences human logs on stdout)
@@ -61,7 +64,7 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   exit "$EXIT_ARG"
 fi
 
-REPO_LIST="repo/repo-list"
+REPO_LIST="repo/repo-list.json"
 REPO_DIR="repo"
 
 if ! git symbolic-ref refs/remotes/upstream/HEAD >/dev/null 2>&1; then
@@ -129,6 +132,59 @@ trim_line() {
     printf '%s' "$value"
 }
 
+parse_repo_list_json() {
+    local source_file=$1 output_file=$2
+    local tmp_tsv
+
+    if ! command -v jq >/dev/null 2>&1; then
+        die "jq is required to parse $source_file"
+    fi
+
+    tmp_tsv="${output_file}.tsv"
+
+    if ! jq -er '
+      def repo_ref_ok: test("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$");
+      def path_ok:
+        test("^[A-Za-z0-9._/-]+$") and
+        (startswith("/") | not) and
+        (endswith("/") | not) and
+        (. != ".") and
+        (. != "..") and
+        (test("(^|/)\\.\\.($|/)") | not) and
+        (test("//") | not);
+      if type != "object" then error("top-level must be an object") else . end
+      | to_entries[]
+      | .key as $path
+      | .value as $cfg
+      | if ($cfg|type) != "object" then error("entry '\''\($path)'\'' must be an object") else . end
+      | if ($path|path_ok|not) then error("invalid repo path key '\''\($path)'\''") else . end
+      | if (($cfg|has("upstream"))|not) then error("missing upstream for '\''\($path)'\''") else . end
+      | if (($cfg.upstream|type) != "string") or (($cfg.upstream|repo_ref_ok)|not)
+        then error("invalid upstream repo ref for '\''\($path)'\'': '\''\($cfg.upstream|tostring)'\''")
+        else .
+        end
+      | if (($cfg|has("origin")) and (((($cfg.origin|type) != "string") or (($cfg.origin|repo_ref_ok)|not))))
+        then error("invalid origin repo ref for '\''\($path)'\'': '\''\($cfg.origin|tostring)'\''")
+        else .
+        end
+      | [$path, $cfg.upstream, ($cfg.origin // "")]
+      | @tsv
+    ' "$source_file" > "$tmp_tsv"; then
+        die "Invalid repository definition file: $source_file"
+    fi
+
+    if [ ! -s "$tmp_tsv" ]; then
+        die "$source_file has no valid repository entries"
+    fi
+
+    : > "$output_file"
+    while IFS=$'\t' read -r repo_path upstream_repo origin_repo || [ -n "$repo_path" ]; do
+        printf '%s|%s|%s\n' "$repo_path" "$upstream_repo" "$origin_repo" >> "$output_file"
+    done < "$tmp_tsv"
+
+    rm -f "$tmp_tsv"
+}
+
 json_escape() {
     local value=$1
     local dq='"'
@@ -154,25 +210,48 @@ run_cmd() {
 }
 
 init_repo() {
-    local entry=$1 account=$2 reponame=$3 target_path=$4 result_file=$5
-    local upstream_url default_branch upstream_trunk
+    local entry=$1 upstream_repo=$2 origin_repo=$3 target_path=$4 result_file=$5
+    local upstream_url origin_url default_branch upstream_trunk
+    local parent_dir
+
+    upstream_url="https://github.com/${upstream_repo}.git"
+    origin_url=""
+    if [ -n "$origin_repo" ]; then
+        origin_url="https://github.com/${origin_repo}.git"
+    fi
+    parent_dir=$(dirname "$target_path")
 
     if [ "$DRY_RUN" = true ]; then
-        info "[DRY-RUN] Preparing to clone $entry from upstream"
-        info "[DRY-RUN] git clone \"https://github.com/${account}/${reponame}.git\" \"$target_path\" --origin upstream"
+        info "[DRY-RUN] Preparing to clone $entry from upstream $upstream_repo"
+        info "[DRY-RUN] mkdir -p \"$parent_dir\""
+        info "[DRY-RUN] git clone \"$upstream_url\" \"$target_path\" --origin upstream"
         info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
         info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
+        if [ -n "$origin_repo" ]; then
+            info "[DRY-RUN] cd \"$target_path\" && git remote add origin \"$origin_url\" (or set-url if exists)"
+            info "[DRY-RUN] cd \"$target_path\" && git fetch origin"
+        fi
         if command -v jj >/dev/null 2>&1; then
             info "[DRY-RUN] cd \"$target_path\" && jj git init --colocate ."
-            info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\"]'"
-            info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream"
+            if [ -n "$origin_repo" ]; then
+                info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"
+                info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.push origin"
+                info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream <upstream-default-branch>@origin"
+            else
+                info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\"]'"
+                info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream"
+            fi
             info "[DRY-RUN] cd \"$target_path\" && jj config set --repo 'revset-aliases.\"trunk()\"' <upstream-default-branch>@upstream"
         fi
         write_result "$result_file" "dry-run" "$entry" "planned"
         return 0
     fi
 
-    upstream_url="https://github.com/${account}/${reponame}.git"
+    if ! run_cmd "mkdir -p \"$parent_dir\""; then
+        write_result "$result_file" "failed" "$entry" "unable to create parent directory"
+        return 1
+    fi
+
     if ! run_cmd "git clone \"$upstream_url\" \"$target_path\" --origin upstream"; then
         write_result "$result_file" "failed" "$entry" "git clone failed"
         return 1
@@ -193,6 +272,22 @@ init_repo() {
             exit 4
         fi
 
+        if [ -n "$origin_repo" ]; then
+            if git remote get-url origin >/dev/null 2>&1; then
+                if ! run_cmd "git remote set-url origin \"$origin_url\""; then
+                    exit 10
+                fi
+            else
+                if ! run_cmd "git remote add origin \"$origin_url\""; then
+                    exit 10
+                fi
+            fi
+
+            if ! run_cmd "git fetch origin"; then
+                exit 11
+            fi
+        fi
+
         if command -v jj >/dev/null 2>&1; then
             if [ -e .jj ] && [ ! -d .jj ]; then
                 exit 5
@@ -204,14 +299,29 @@ init_repo() {
                 fi
             fi
 
-            if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
-                exit 7
+            if [ -n "$origin_repo" ]; then
+                if ! run_cmd "jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"; then
+                    exit 7
+                fi
+                if ! run_cmd "jj config set --repo git.push origin"; then
+                    exit 12
+                fi
+            else
+                if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
+                    exit 7
+                fi
             fi
 
             upstream_trunk=$(detect_upstream_default_branch || true)
             if [ -n "$upstream_trunk" ]; then
-                if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\""; then
-                    exit 8
+                if [ -n "$origin_repo" ] && git show-ref --verify --quiet "refs/remotes/origin/${upstream_trunk}"; then
+                    if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\" \"${upstream_trunk}@origin\""; then
+                        exit 8
+                    fi
+                else
+                    if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\""; then
+                        exit 8
+                    fi
                 fi
                 if ! run_cmd "jj config set --repo 'revset-aliases.\"trunk()\"' \"${upstream_trunk}@upstream\""; then
                     exit 9
@@ -230,6 +340,9 @@ init_repo() {
             7) write_result "$result_file" "failed" "$entry" "unable to set jj git.fetch upstream default" ;;
             8) write_result "$result_file" "failed" "$entry" "unable to track upstream default bookmark" ;;
             9) write_result "$result_file" "failed" "$entry" "unable to set jj trunk alias" ;;
+            10) write_result "$result_file" "failed" "$entry" "unable to configure origin remote" ;;
+            11) write_result "$result_file" "failed" "$entry" "unable to fetch origin remote" ;;
+            12) write_result "$result_file" "failed" "$entry" "unable to set jj push default remote" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
@@ -242,31 +355,26 @@ init_repo() {
 PIDS=()
 RESULT_FILES=()
 INDEX=0
+PARSED_REPO_LIST="${RESULT_DIR}/repo-list.parsed"
 
-while IFS= read -r ENTRY || [ -n "$ENTRY" ]; do
-    ENTRY="$(trim_line "$ENTRY")"
-    [[ -z "$ENTRY" || "$ENTRY" =~ ^# ]] && continue
+parse_repo_list_json "$REPO_LIST" "$PARSED_REPO_LIST"
 
-    if [[ ! "$ENTRY" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
-        warn "Skip invalid format: '$ENTRY' (expect account/repo_name)"
-        continue
-    fi
-
-    account="${ENTRY%%/*}"
-    reponame="${ENTRY##*/}"
-    TARGET_PATH="${REPO_DIR}/${reponame}"
+while IFS='|' read -r REPO_PATH UPSTREAM_REPO ORIGIN_REPO || [ -n "$REPO_PATH" ]; do
+    ENTRY="$REPO_PATH"
+    TARGET_PATH="${REPO_DIR}/${REPO_PATH}"
     RESULT_FILE="${RESULT_DIR}/result_${INDEX}.txt"
     INDEX=$((INDEX + 1))
     RESULT_FILES+=("$RESULT_FILE")
+
     if [ -d "$TARGET_PATH/.git" ]; then
         warn "[SKIP] $ENTRY already exists at $TARGET_PATH"
         write_result "$RESULT_FILE" "skipped" "$ENTRY" "already exists"
         continue
     fi
 
-    init_repo "$ENTRY" "$account" "$reponame" "$TARGET_PATH" "$RESULT_FILE" &
+    init_repo "$ENTRY" "$UPSTREAM_REPO" "$ORIGIN_REPO" "$TARGET_PATH" "$RESULT_FILE" &
     PIDS+=("$!")
-done < "$REPO_LIST"
+done < "$PARSED_REPO_LIST"
 
 WAIT_FAIL_COUNT=0
 for pid in "${PIDS[@]}"; do
