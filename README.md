@@ -103,6 +103,38 @@ The fastest way to initialize the workspace is using the AI agent. Launch OpenCo
 opencode .
 ```
 
+Before running any initialization prompt or command, configure `repo/repo-list.json`.
+This file is the source of truth for per-repository `upstream` and optional `origin` remotes.
+
+Quick start tip: copy the example file and then edit it for your own fork URLs.
+
+```bash
+cp repo/repo-list.example.json repo/repo-list.json
+# edit repo/repo-list.json for your environment
+```
+
+Use this format for `repo/repo-list.json`:
+
+```json
+{
+  "longhorn-manager": {
+    "upstream": "https://github.com/longhorn/longhorn-manager.git",
+    "origin": "git@github.com:your-github-id/longhorn-manager.git"
+  },
+  "types": {
+    "upstream": "https://github.com/longhorn/types.git"
+  },
+  "csi/external-attacher": {
+    "upstream": "https://github.com/longhorn/csi-attacher.git"
+  }
+}
+```
+
+Format notes:
+- JSON key = target path under `repo/`.
+- `upstream` is required and must be a full git URL.
+- `origin` is optional and should point to your writable fork URL.
+
 **Initialization Prompt:**
 
 ```
@@ -124,32 +156,8 @@ When you provide this prompt to the AI agent:
    - Local `upstream` branch tracking the upstream default branch (main or master)
 4. The command runs index generation (currently `interaction-mapper`) under `context/indices/` so the agent can understand cross-repo architecture for navigation and implementation tasks.
 
-**Note:** The `/init-workspace` command sets up upstream remotes and local upstream branches. You are responsible for managing your personal fork configuration if you plan to contribute code.
-
-### Example `repo/repo-list.json`
-
-The repository definition file uses the target path under `repo/` as the key.
-Each entry must define `upstream`, and may optionally define `origin`.
-
-```json
-{
-  "longhorn-manager": {
-    "upstream": "longhorn/longhorn-manager",
-    "origin": "your-github-id/longhorn-manager"
-  },
-  "types": {
-    "upstream": "longhorn/types"
-  },
-  "csi/external-attacher": {
-    "upstream": "longhorn/csi-attacher"
-  }
-}
-```
-
-In this example:
-- `repo/longhorn-manager` clones from `longhorn/longhorn-manager` and configures personal fork `your-github-id/longhorn-manager` as `origin`.
-- `repo/types` clones from `longhorn/types` with upstream-only configuration.
-- `repo/csi/external-attacher` shows nested relative paths are supported.
+**Note:** The `/init-workspace` command applies remotes from `repo/repo-list.json`.
+Update that file first whenever you need to change upstream or personal fork (`origin`) URLs.
 
 ### Manual Initialization (Alternative)
 
@@ -159,14 +167,6 @@ If you prefer manual setup:
 # Initialize repositories using the /init-workspace command
 bash .opencode/commands/init-workspace.sh --dry-run  # Preview actions
 bash .opencode/commands/init-workspace.sh            # Execute (default)
-```
-
-To add your personal fork to a repository:
-
-```bash
-cd repo/[repo-name]
-git remote add origin https://github.com/[your-account]/[repo-name]
-git fetch origin
 ```
 
 ## Working with Skills

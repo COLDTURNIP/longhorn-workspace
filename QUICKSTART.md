@@ -136,6 +136,17 @@ cd longhorn-workspace
 
 ## 4) Initialize the Workspace
 
+Before initialization, configure repository remotes in `repo/repo-list.json`.
+Do this first, before running `/init-workspace` or the shell script.
+This file controls `upstream` and optional `origin` URLs for each subrepo.
+
+Quick start tip:
+
+```bash
+cp repo/repo-list.example.json repo/repo-list.json
+# edit repo/repo-list.json for your environment
+```
+
 Start OpenCode in the root of the workspace:
 
 ```bash
@@ -151,7 +162,7 @@ Ask the main agent (Sisyphus) to initialize the workspace:
 Alternatively, you can run the initialization script directly:
 
 ```bash
-bash .opencode/commands/init-workspace.md
+bash .opencode/commands/init-workspace.sh
 ```
 
 All Longhorn repositories will be cloned into the `repo/` directory, and architectural indices will be generated for codebase understanding.

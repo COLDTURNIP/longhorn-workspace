@@ -1,0 +1,83 @@
+{
+  "renote": {
+    "upstream": "innobead/renote"
+  },
+  "backing-image-manager": {
+    "upstream": "longhorn/backing-image-manager"
+  },
+  "backupstore": {
+    "upstream": "longhorn/backupstore"
+  },
+  "beszel": {
+    "upstream": "longhorn/beszel"
+  },
+  "cli": {
+    "upstream": "longhorn/cli"
+  },
+  "csi-attacher": {
+    "upstream": "longhorn/csi-attacher"
+  },
+  "csi-node-driver-registrar": {
+    "upstream": "longhorn/csi-node-driver-registrar"
+  },
+  "csi-provisioner": {
+    "upstream": "longhorn/csi-provisioner"
+  },
+  "csi-resizer": {
+    "upstream": "longhorn/csi-resizer"
+  },
+  "csi-snapshotter": {
+    "upstream": "longhorn/csi-snapshotter"
+  },
+  "dep-versions": {
+    "upstream": "longhorn/dep-versions"
+  },
+  "go-common-libs": {
+    "upstream": "longhorn/go-common-libs"
+  },
+  "go-iscsi-helper": {
+    "upstream": "longhorn/go-iscsi-helper"
+  },
+  "go-spdk-helper": {
+    "upstream": "longhorn/go-spdk-helper"
+  },
+  "livenessprobe": {
+    "upstream": "longhorn/livenessprobe"
+  },
+  "longhorn": {
+    "upstream": "longhorn/longhorn"
+  },
+  "longhorn-engine": {
+    "upstream": "longhorn/longhorn-engine"
+  },
+  "longhorn-instance-manager": {
+    "upstream": "longhorn/longhorn-instance-manager"
+  },
+  "longhorn-manager": {
+    "upstream": "longhorn/longhorn-manager"
+  },
+  "longhorn-share-manager": {
+    "upstream": "longhorn/longhorn-share-manager"
+  },
+  "longhorn-spdk-engine": {
+    "upstream": "longhorn/longhorn-spdk-engine"
+  },
+  "longhorn-tests": {
+    "upstream": "longhorn/longhorn-tests"
+  },
+  "longhorn-ui": {
+    "upstream": "longhorn/longhorn-ui"
+  },
+  "release": {
+    "upstream": "longhorn/release"
+  },
+  "sparse-tools": {
+    "upstream": "longhorn/sparse-tools"
+  },
+  "types": {
+    "upstream": "longhorn/types"
+  },
+  "website": {
+    "upstream": "longhorn/website"
+  }
+}

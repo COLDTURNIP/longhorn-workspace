@@ -16,8 +16,8 @@ Usage: $SCRIPT_NAME [options]
 
 Clone all repositories listed in repo/repo-list.json.
 Each key is the target relative path under repo/, and each value defines:
-  - upstream: required org/repo
-  - origin: optional org/repo personal fork
+  - upstream: required full git URL
+  - origin: optional full git URL personal fork
 
 Options:
   --json              Emit JSON summary to stdout only (silences human logs on stdout)
@@ -143,7 +143,9 @@ parse_repo_list_json() {
     tmp_tsv="${output_file}.tsv"
 
     if ! jq -er '
-      def repo_ref_ok: test("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$");
+      def repo_url_ok:
+        test("^[A-Za-z][A-Za-z0-9+.-]*://[^[:space:]]+\\.git$") or
+        test("^git@[^[:space:]:]+:[^[:space:]]+\\.git$");
       def path_ok:
         test("^[A-Za-z0-9._/-]+$") and
         (startswith("/") | not) and
@@ -159,12 +161,12 @@ parse_repo_list_json() {
       | if ($cfg|type) != "object" then error("entry '\''\($path)'\'' must be an object") else . end
       | if ($path|path_ok|not) then error("invalid repo path key '\''\($path)'\''") else . end
       | if (($cfg|has("upstream"))|not) then error("missing upstream for '\''\($path)'\''") else . end
-      | if (($cfg.upstream|type) != "string") or (($cfg.upstream|repo_ref_ok)|not)
-        then error("invalid upstream repo ref for '\''\($path)'\'': '\''\($cfg.upstream|tostring)'\''")
+      | if (($cfg.upstream|type) != "string") or (($cfg.upstream|repo_url_ok)|not)
+        then error("invalid upstream repo URL for '\''\($path)'\'': '\''\($cfg.upstream|tostring)'\''")
         else .
         end
-      | if (($cfg|has("origin")) and (((($cfg.origin|type) != "string") or (($cfg.origin|repo_ref_ok)|not))))
-        then error("invalid origin repo ref for '\''\($path)'\'': '\''\($cfg.origin|tostring)'\''")
+      | if (($cfg|has("origin")) and (((($cfg.origin|type) != "string") or (($cfg.origin|repo_url_ok)|not))))
+        then error("invalid origin repo URL for '\''\($path)'\'': '\''\($cfg.origin|tostring)'\''")
         else .
         end
       | [$path, $cfg.upstream, ($cfg.origin // "")]
@@ -210,30 +212,36 @@ run_cmd() {
 }
 
 init_repo() {
-    local entry=$1 upstream_repo=$2 origin_repo=$3 target_path=$4 result_file=$5
+    local entry=$1 upstream_repo_url=$2 origin_repo_url=$3 target_path=$4 result_file=$5 existing_repo=$6
     local upstream_url origin_url default_branch upstream_trunk
     local parent_dir
 
-    upstream_url="https://github.com/${upstream_repo}.git"
+    upstream_url="$upstream_repo_url"
     origin_url=""
-    if [ -n "$origin_repo" ]; then
-        origin_url="https://github.com/${origin_repo}.git"
+    if [ -n "$origin_repo_url" ]; then
+        origin_url="$origin_repo_url"
     fi
     parent_dir=$(dirname "$target_path")
 
     if [ "$DRY_RUN" = true ]; then
-        info "[DRY-RUN] Preparing to clone $entry from upstream $upstream_repo"
-        info "[DRY-RUN] mkdir -p \"$parent_dir\""
-        info "[DRY-RUN] git clone \"$upstream_url\" \"$target_path\" --origin upstream"
-        info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
-        info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
-        if [ -n "$origin_repo" ]; then
+        if [ "$existing_repo" = true ]; then
+            info "[DRY-RUN] Reconciling existing repository $entry at $target_path"
+            info "[DRY-RUN] cd \"$target_path\" && git remote add upstream \"$upstream_url\" (or set-url if exists)"
+        else
+            info "[DRY-RUN] Preparing to clone $entry from upstream $upstream_repo_url"
+            info "[DRY-RUN] mkdir -p \"$parent_dir\""
+            info "[DRY-RUN] git clone \"$upstream_url\" \"$target_path\" --origin upstream"
+            info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
+            info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
+        fi
+        if [ -n "$origin_repo_url" ]; then
             info "[DRY-RUN] cd \"$target_path\" && git remote add origin \"$origin_url\" (or set-url if exists)"
-            info "[DRY-RUN] cd \"$target_path\" && git fetch origin"
+        else
+            info "[DRY-RUN] cd \"$target_path\" && git remote remove origin (if exists)"
         fi
         if command -v jj >/dev/null 2>&1; then
             info "[DRY-RUN] cd \"$target_path\" && jj git init --colocate ."
-            if [ -n "$origin_repo" ]; then
+            if [ -n "$origin_repo_url" ]; then
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.push origin"
                 info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream <upstream-default-branch>@origin"
@@ -243,36 +251,54 @@ init_repo() {
             fi
             info "[DRY-RUN] cd \"$target_path\" && jj config set --repo 'revset-aliases.\"trunk()\"' <upstream-default-branch>@upstream"
         fi
-        write_result "$result_file" "dry-run" "$entry" "planned"
+        if [ "$existing_repo" = true ]; then
+            write_result "$result_file" "dry-run" "$entry" "planned remote reconciliation"
+        else
+            write_result "$result_file" "dry-run" "$entry" "planned"
+        fi
         return 0
     fi
 
-    if ! run_cmd "mkdir -p \"$parent_dir\""; then
-        write_result "$result_file" "failed" "$entry" "unable to create parent directory"
-        return 1
-    fi
+    if [ "$existing_repo" = false ]; then
+        if ! run_cmd "mkdir -p \"$parent_dir\""; then
+            write_result "$result_file" "failed" "$entry" "unable to create parent directory"
+            return 1
+        fi
 
-    if ! run_cmd "git clone \"$upstream_url\" \"$target_path\" --origin upstream"; then
-        write_result "$result_file" "failed" "$entry" "git clone failed"
-        return 1
+        if ! run_cmd "git clone \"$upstream_url\" \"$target_path\" --origin upstream"; then
+            write_result "$result_file" "failed" "$entry" "git clone failed"
+            return 1
+        fi
     fi
 
     local subshell_rc
     (
         cd "$target_path"
-        default_branch=$(detect_local_default_branch "$entry") || exit 2
-        info "Detected local default branch: $default_branch"
-        if [ "$default_branch" != "upstream" ]; then
-            if ! run_cmd "git branch -m \"$default_branch\" upstream"; then
-                exit 3
+        if [ "$existing_repo" = false ]; then
+            default_branch=$(detect_local_default_branch "$entry") || exit 2
+            info "Detected local default branch: $default_branch"
+            if [ "$default_branch" != "upstream" ]; then
+                if ! run_cmd "git branch -m \"$default_branch\" upstream"; then
+                    exit 3
+                fi
+            fi
+
+            if ! git show-ref --verify --quiet refs/heads/upstream; then
+                exit 4
             fi
         fi
 
-        if ! git show-ref --verify --quiet refs/heads/upstream; then
-            exit 4
+        if git remote get-url upstream >/dev/null 2>&1; then
+            if ! run_cmd "git remote set-url upstream \"$upstream_url\""; then
+                exit 13
+            fi
+        else
+            if ! run_cmd "git remote add upstream \"$upstream_url\""; then
+                exit 13
+            fi
         fi
 
-        if [ -n "$origin_repo" ]; then
+        if [ -n "$origin_repo_url" ]; then
             if git remote get-url origin >/dev/null 2>&1; then
                 if ! run_cmd "git remote set-url origin \"$origin_url\""; then
                     exit 10
@@ -283,8 +309,11 @@ init_repo() {
                 fi
             fi
 
-            if ! run_cmd "git fetch origin"; then
-                exit 11
+        else
+            if git remote get-url origin >/dev/null 2>&1; then
+                if ! run_cmd "git remote remove origin"; then
+                    exit 15
+                fi
             fi
         fi
 
@@ -299,7 +328,7 @@ init_repo() {
                 fi
             fi
 
-            if [ -n "$origin_repo" ]; then
+            if [ -n "$origin_repo_url" ]; then
                 if ! run_cmd "jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"; then
                     exit 7
                 fi
@@ -314,7 +343,7 @@ init_repo() {
 
             upstream_trunk=$(detect_upstream_default_branch || true)
             if [ -n "$upstream_trunk" ]; then
-                if [ -n "$origin_repo" ] && git show-ref --verify --quiet "refs/remotes/origin/${upstream_trunk}"; then
+                if [ -n "$origin_repo_url" ] && git show-ref --verify --quiet "refs/remotes/origin/${upstream_trunk}"; then
                     if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\" \"${upstream_trunk}@origin\""; then
                         exit 8
                     fi
@@ -341,14 +370,21 @@ init_repo() {
             8) write_result "$result_file" "failed" "$entry" "unable to track upstream default bookmark" ;;
             9) write_result "$result_file" "failed" "$entry" "unable to set jj trunk alias" ;;
             10) write_result "$result_file" "failed" "$entry" "unable to configure origin remote" ;;
-            11) write_result "$result_file" "failed" "$entry" "unable to fetch origin remote" ;;
+            11) write_result "$result_file" "failed" "$entry" "unable to configure origin remote" ;;
             12) write_result "$result_file" "failed" "$entry" "unable to set jj push default remote" ;;
+            13) write_result "$result_file" "failed" "$entry" "unable to configure upstream remote" ;;
+            14) write_result "$result_file" "failed" "$entry" "unable to configure upstream remote" ;;
+            15) write_result "$result_file" "failed" "$entry" "unable to remove origin remote" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
     fi
 
-    write_result "$result_file" "success" "$entry" "initialized"
+    if [ "$existing_repo" = true ]; then
+        write_result "$result_file" "success" "$entry" "remotes reconciled"
+    else
+        write_result "$result_file" "success" "$entry" "initialized"
+    fi
     return 0
 }
 
@@ -366,13 +402,12 @@ while IFS='|' read -r REPO_PATH UPSTREAM_REPO ORIGIN_REPO || [ -n "$REPO_PATH" ]
     INDEX=$((INDEX + 1))
     RESULT_FILES+=("$RESULT_FILE")
 
+    existing_repo=false
     if [ -d "$TARGET_PATH/.git" ]; then
-        warn "[SKIP] $ENTRY already exists at $TARGET_PATH"
-        write_result "$RESULT_FILE" "skipped" "$ENTRY" "already exists"
-        continue
+        existing_repo=true
     fi
 
-    init_repo "$ENTRY" "$UPSTREAM_REPO" "$ORIGIN_REPO" "$TARGET_PATH" "$RESULT_FILE" &
+    init_repo "$ENTRY" "$UPSTREAM_REPO" "$ORIGIN_REPO" "$TARGET_PATH" "$RESULT_FILE" "$existing_repo" &
     PIDS+=("$!")
 done < "$PARSED_REPO_LIST"
 
