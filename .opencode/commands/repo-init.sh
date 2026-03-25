@@ -87,6 +87,24 @@ detect_local_default_branch() {
     return 1
 }
 
+detect_upstream_default_branch() {
+    local ref=""
+
+    ref=$(git symbolic-ref refs/remotes/upstream/HEAD 2>/dev/null || true)
+    if [ -z "$ref" ]; then
+        return 1
+    fi
+
+    case "$ref" in
+        refs/remotes/upstream/*)
+            printf '%s\n' "${ref#refs/remotes/upstream/}"
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
 if [ ! -f "$REPO_LIST" ]; then
     die "$REPO_LIST not found. Run repo-init from workspace root."
 fi
@@ -137,13 +155,19 @@ run_cmd() {
 
 init_repo() {
     local entry=$1 account=$2 reponame=$3 target_path=$4 result_file=$5
-    local upstream_url default_branch
+    local upstream_url default_branch upstream_trunk
 
     if [ "$DRY_RUN" = true ]; then
         info "[DRY-RUN] Preparing to clone $entry from upstream"
         info "[DRY-RUN] git clone \"https://github.com/${account}/${reponame}.git\" \"$target_path\" --origin upstream"
         info "[DRY-RUN] cd \"$target_path\" && detect local default branch"
         info "[DRY-RUN] cd \"$target_path\" && git branch -m <default-branch> upstream"
+        if command -v jj >/dev/null 2>&1; then
+            info "[DRY-RUN] cd \"$target_path\" && jj git init --colocate ."
+            info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\"]'"
+            info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <upstream-default-branch>@upstream"
+            info "[DRY-RUN] cd \"$target_path\" && jj config set --repo 'revset-aliases.\"trunk()\"' <upstream-default-branch>@upstream"
+        fi
         write_result "$result_file" "dry-run" "$entry" "planned"
         return 0
     fi
@@ -168,6 +192,32 @@ init_repo() {
         if ! git show-ref --verify --quiet refs/heads/upstream; then
             exit 4
         fi
+
+        if command -v jj >/dev/null 2>&1; then
+            if [ -e .jj ] && [ ! -d .jj ]; then
+                exit 5
+            fi
+
+            if [ ! -d .jj ]; then
+                if ! run_cmd "jj git init --colocate ."; then
+                    exit 6
+                fi
+            fi
+
+            if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
+                exit 7
+            fi
+
+            upstream_trunk=$(detect_upstream_default_branch || true)
+            if [ -n "$upstream_trunk" ]; then
+                if ! run_cmd "jj bookmark track \"${upstream_trunk}@upstream\""; then
+                    exit 8
+                fi
+                if ! run_cmd "jj config set --repo 'revset-aliases.\"trunk()\"' \"${upstream_trunk}@upstream\""; then
+                    exit 9
+                fi
+            fi
+        fi
     )
     subshell_rc=$?
     if [ "$subshell_rc" -ne 0 ]; then
@@ -175,6 +225,11 @@ init_repo() {
             2) write_result "$result_file" "failed" "$entry" "unable to detect local default branch" ;;
             3) write_result "$result_file" "failed" "$entry" "unable to rename default branch to upstream" ;;
             4) write_result "$result_file" "failed" "$entry" "upstream branch missing after rename" ;;
+            5) write_result "$result_file" "failed" "$entry" ".jj path exists but is not a directory" ;;
+            6) write_result "$result_file" "failed" "$entry" "jj git init failed" ;;
+            7) write_result "$result_file" "failed" "$entry" "unable to set jj git.fetch upstream default" ;;
+            8) write_result "$result_file" "failed" "$entry" "unable to track upstream default bookmark" ;;
+            9) write_result "$result_file" "failed" "$entry" "unable to set jj trunk alias" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
