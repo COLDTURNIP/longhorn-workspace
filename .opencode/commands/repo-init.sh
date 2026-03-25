@@ -234,8 +234,8 @@ run_cmd() {
 init_repo() {
     local entry=$1 upstream_repo_url=$2 origin_repo_url=$3 target_path=$4 result_file=$5 existing_repo=$6
     local upstream_url origin_url upstream_trunk summary_message
-    local has_origin_remote=false has_main_bookmark=false
-    local dry_origin_tracking dry_main_bookmark_state
+    local has_origin_remote=false
+    local dry_origin_tracking
     local metadata_file metadata_line
     local result_trunk_branch result_origin_tracking result_main_bookmark_state
     local parent_dir
@@ -252,8 +252,6 @@ init_repo() {
         if [ -n "$origin_repo_url" ]; then
             dry_origin_tracking="planned-track-if-origin-trunk-exists"
         fi
-        dry_main_bookmark_state="planned-reset-to-trunk"
-
         if [ "$existing_repo" = true ]; then
             info "[DRY-RUN] Reconciling existing repository $entry at $target_path"
             info "[DRY-RUN] cd \"$target_path\" && git remote add upstream \"$upstream_url\" (or set-url if exists)"
@@ -280,14 +278,13 @@ init_repo() {
             info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <trunk-branch> --remote=upstream"
             info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <trunk-branch> --remote=origin (if origin remote exists)"
             info "[DRY-RUN] cd \"$target_path\" && jj config set --repo 'revset-aliases.\"trunk()\"' <upstream-default-branch>@upstream"
-            info "[DRY-RUN] cd \"$target_path\" && jj bookmark set main -r trunk() --allow-backwards"
         fi
         if [ "$existing_repo" = true ]; then
-            write_result "$result_file" "dry-run" "$entry" "planned remote reconciliation with main reset" \
-                "auto(main>master)" "$dry_origin_tracking" "$dry_main_bookmark_state"
+            write_result "$result_file" "dry-run" "$entry" "planned remote reconciliation" \
+                "auto(main>master)" "$dry_origin_tracking" ""
         else
-            write_result "$result_file" "dry-run" "$entry" "planned initialization with main reset" \
-                "auto(main>master)" "$dry_origin_tracking" "$dry_main_bookmark_state"
+            write_result "$result_file" "dry-run" "$entry" "planned initialization" \
+                "auto(main>master)" "$dry_origin_tracking" ""
         fi
         return 0
     fi
@@ -345,7 +342,7 @@ init_repo() {
 
         if command -v jj >/dev/null 2>&1; then
             result_origin_tracking="not-configured"
-            result_main_bookmark_state="preserved"
+            result_main_bookmark_state=""
 
             if [ -e .jj ] && [ ! -d .jj ]; then
                 exit 5
@@ -419,17 +416,7 @@ init_repo() {
                 result_origin_tracking="not-configured"
             fi
 
-            if jj log -r 'main' -n 1 >/dev/null 2>&1; then
-                has_main_bookmark=true
-            fi
-            if ! run_cmd "jj bookmark set main -r 'trunk()' --allow-backwards"; then
-                exit 19
-            fi
-            if [ "$has_main_bookmark" = false ]; then
-                result_main_bookmark_state="created-and-reset-to-trunk"
-            else
-                result_main_bookmark_state="reset-to-trunk"
-            fi
+            result_main_bookmark_state=""
         else
             result_origin_tracking="jj-unavailable"
             result_main_bookmark_state="jj-unavailable"
@@ -452,7 +439,6 @@ init_repo() {
             14) write_result "$result_file" "failed" "$entry" "unable to configure upstream remote" ;;
             16) write_result "$result_file" "failed" "$entry" "unable to fetch upstream remote" ;;
             17) write_result "$result_file" "failed" "$entry" "unable to detect upstream trunk branch (main/master)" ;;
-            19) write_result "$result_file" "failed" "$entry" "unable to reset local jj main bookmark to trunk()" ;;
             *) write_result "$result_file" "failed" "$entry" "unexpected failure" ;;
         esac
         return 1
@@ -470,7 +456,7 @@ init_repo() {
     if [ "$existing_repo" = true ]; then
         summary_message="remotes reconciled"
     fi
-    summary_message="${summary_message}; main reset to trunk()"
+    summary_message="${summary_message}; trunk() alias configured"
 
     if [ "$existing_repo" = true ]; then
         write_result "$result_file" "success" "$entry" "$summary_message" \
