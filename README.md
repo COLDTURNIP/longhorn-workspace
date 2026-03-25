@@ -53,7 +53,6 @@ workspace-root/
       interaction-mapper/       (Architectural mapping)
       longhorn-build-system/    (Build system expertise)
       longhorn-user-docs/       (Documentation assistance)
-      plan-gate/                (Plan contract linting)
       repo-navigator/           (Code navigation)
       support-bundle-analysis/  (Diagnostics)
       sync-crd-helm/            (CRD/Helm synchronization)
@@ -178,8 +177,6 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 - **longhorn-user-docs**: Assist with user documentation
   - Example: "use longhorn-user-docs skill to update documentation"
 
-- **plan-gate**: Lint execution plans for required step contract fields
-  - Example: "use plan-gate to validate .sisyphus/plans/my-plan.md"
 
 - **repo-navigator**: Navigate and search across multiple repositories
   - Example: "use repo-navigator to find VolumeController implementation"

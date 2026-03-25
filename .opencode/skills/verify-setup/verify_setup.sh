@@ -59,8 +59,6 @@ check_plan_mode_prerequisites() {
 
   # Verify plan-mode prerequisites (fatal if missing)
   local plan_doc="AGENTS.d/plan-and-delegation.md"
-  local plan_gate_skill=".opencode/skills/plan-gate/SKILL.md"
-  local plan_gate_script=".opencode/skills/plan-gate/plan_gate.sh"
 
   if [ ! -f "$plan_doc" ]; then
     die "plan-mode requires $plan_doc"
@@ -68,13 +66,6 @@ check_plan_mode_prerequisites() {
   if ! grep -q "Plan Step Contract" "$plan_doc" 2>/dev/null; then
     die "plan-mode check failed: missing Plan Step Contract marker in $plan_doc"
   fi
-  if [ ! -f "$plan_gate_skill" ]; then
-    die "plan-mode requires $plan_gate_skill"
-  fi
-  if [ ! -f "$plan_gate_script" ]; then
-    die "plan-mode requires $plan_gate_script"
-  fi
-
   # If boulder state exists, inspect active_plan and warn if it references a missing file
   local bfile=".sisyphus/boulder.json"
   if [ ! -f "$bfile" ]; then
