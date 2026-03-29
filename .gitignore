@@ -4,7 +4,7 @@
 
 repo/*
 !repo/AGENTS.md
-!repo/repo-list*
+!repo/repo-list.example.json
 ticket/*
 !ticket/AGENTS.md
 context/*
