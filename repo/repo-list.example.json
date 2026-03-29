@@ -1,83 +1,83 @@
 {
   "renote": {
-    "upstream": "innobead/renote"
+    "upstream": "https://github.com/innobead/renote.git"
   },
   "backing-image-manager": {
-    "upstream": "longhorn/backing-image-manager"
+    "upstream": "https://github.com/longhorn/backing-image-manager.git"
   },
   "backupstore": {
-    "upstream": "longhorn/backupstore"
+    "upstream": "https://github.com/longhorn/backupstore.git"
   },
   "beszel": {
-    "upstream": "longhorn/beszel"
+    "upstream": "https://github.com/longhorn/beszel.git"
   },
   "cli": {
-    "upstream": "longhorn/cli"
+    "upstream": "https://github.com/longhorn/cli.git"
   },
   "csi-attacher": {
-    "upstream": "longhorn/csi-attacher"
+    "upstream": "https://github.com/longhorn/csi-attacher.git"
   },
   "csi-node-driver-registrar": {
-    "upstream": "longhorn/csi-node-driver-registrar"
+    "upstream": "https://github.com/longhorn/csi-node-driver-registrar.git"
   },
   "csi-provisioner": {
-    "upstream": "longhorn/csi-provisioner"
+    "upstream": "https://github.com/longhorn/csi-provisioner.git"
   },
   "csi-resizer": {
-    "upstream": "longhorn/csi-resizer"
+    "upstream": "https://github.com/longhorn/csi-resizer.git"
   },
   "csi-snapshotter": {
-    "upstream": "longhorn/csi-snapshotter"
+    "upstream": "https://github.com/longhorn/csi-snapshotter.git"
   },
   "dep-versions": {
-    "upstream": "longhorn/dep-versions"
+    "upstream": "https://github.com/longhorn/dep-versions.git"
   },
   "go-common-libs": {
-    "upstream": "longhorn/go-common-libs"
+    "upstream": "https://github.com/longhorn/go-common-libs.git"
   },
   "go-iscsi-helper": {
-    "upstream": "longhorn/go-iscsi-helper"
+    "upstream": "https://github.com/longhorn/go-iscsi-helper.git"
   },
   "go-spdk-helper": {
-    "upstream": "longhorn/go-spdk-helper"
+    "upstream": "https://github.com/longhorn/go-spdk-helper.git"
   },
   "livenessprobe": {
-    "upstream": "longhorn/livenessprobe"
+    "upstream": "https://github.com/longhorn/livenessprobe.git"
   },
   "longhorn": {
-    "upstream": "longhorn/longhorn"
+    "upstream": "https://github.com/longhorn/longhorn.git"
   },
   "longhorn-engine": {
-    "upstream": "longhorn/longhorn-engine"
+    "upstream": "https://github.com/longhorn/longhorn-engine.git"
   },
   "longhorn-instance-manager": {
-    "upstream": "longhorn/longhorn-instance-manager"
+    "upstream": "https://github.com/longhorn/longhorn-instance-manager.git"
   },
   "longhorn-manager": {
-    "upstream": "longhorn/longhorn-manager"
+    "upstream": "https://github.com/longhorn/longhorn-manager.git"
   },
   "longhorn-share-manager": {
-    "upstream": "longhorn/longhorn-share-manager"
+    "upstream": "https://github.com/longhorn/longhorn-share-manager.git"
   },
   "longhorn-spdk-engine": {
-    "upstream": "longhorn/longhorn-spdk-engine"
+    "upstream": "https://github.com/longhorn/longhorn-spdk-engine.git"
   },
   "longhorn-tests": {
-    "upstream": "longhorn/longhorn-tests"
+    "upstream": "https://github.com/longhorn/longhorn-tests.git"
   },
   "longhorn-ui": {
-    "upstream": "longhorn/longhorn-ui"
+    "upstream": "https://github.com/longhorn/longhorn-ui.git"
   },
   "release": {
-    "upstream": "longhorn/release"
+    "upstream": "https://github.com/longhorn/release.git"
   },
   "sparse-tools": {
-    "upstream": "longhorn/sparse-tools"
+    "upstream": "https://github.com/longhorn/sparse-tools.git"
   },
   "types": {
-    "upstream": "longhorn/types"
+    "upstream": "https://github.com/longhorn/types.git"
   },
   "website": {
-    "upstream": "longhorn/website"
+    "upstream": "https://github.com/longhorn/website.git"
   }
 }
