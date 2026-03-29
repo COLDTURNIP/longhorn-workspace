@@ -146,8 +146,16 @@ check_clean_tree() {
     warn "Skipping clean tree check due to SKIP_CLEAN_CHECK=true"
     return
   fi
-  if [ -n "$(git status --porcelain)" ]; then
-    die "Working tree dirty; stash/commit changes before proceeding"
+  # jj-first: in a jj repo the working copy is always a live change;
+  # treat it as dirty only when jj diff reports actual content.
+  if test -d .jj && command -v jj >/dev/null 2>&1; then
+    if [ -n "$(jj diff --summary 2>/dev/null)" ]; then
+      die "Working change has content; complete or abandon before proceeding (jj diff)"
+    fi
+  else
+    if [ -n "$(git status --porcelain)" ]; then
+      die "Working tree dirty; stash/commit changes before proceeding"
+    fi
   fi
   info "Working tree clean"
 }

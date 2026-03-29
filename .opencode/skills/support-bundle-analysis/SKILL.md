@@ -1,6 +1,9 @@
 ---
 name: support-bundle-analysis
-description: Systematic problem-driven approach to analyze Rancher/Longhorn support bundles
+description: >
+  Use when the user provides a Rancher or Longhorn support bundle and needs root cause
+  analysis for cluster issues: volume attachment failures, pod crashes, backing image
+  errors, node unavailability, or storage/network problems.
 compatibility: opencode
 metadata:
   version: "2.0"

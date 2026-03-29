@@ -1,6 +1,8 @@
 ---
 name: longhorn-build-system
-description: Explains how Longhorn repos auto-generate Make targets from scripts/ folder files via Dapper containers
+description: >
+  Use when asked how make targets work in Longhorn repos, adding a new build task,
+  debugging a Dapper build failure, or unfamiliar with why Makefiles are so minimal.
 compatibility: opencode
 metadata:
   applies-to: longhorn-manager, longhorn-engine, longhorn-instance-manager

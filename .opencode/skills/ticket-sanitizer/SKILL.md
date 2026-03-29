@@ -1,6 +1,9 @@
 ---
 name: ticket-sanitizer
-description: Enforces standardized naming conventions (${org}-${ticket_id}-${description}) and initializes directory structures for ticket folders to ensure consistent task tracking.
+description: >
+  Use when creating or renaming ticket folders, or when existing folders in ticket/
+  do not follow the ${org}-${ticket_id}-${description} naming convention. Also use
+  to initialize logs/ and repro/ subdirectories in a new ticket folder.
 compatibility: opencode
 metadata:
   version: "1.1"

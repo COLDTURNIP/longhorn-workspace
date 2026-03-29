@@ -7,9 +7,18 @@ Use this before declaring work finished.
 - Repo paths: run ascii-scanner only on files under `repo/<repo-name>/` that are added/modified. Skip vendor/ and generated paths. Use diff-filter=ACM so deletions do not trigger the scanner.
 - Non-repo paths: scan the specific file(s) you touched directly.
 ```sh
+# Repo paths (jj-first for workspace root; subrepos always use git)
+# For subrepos under repo/<repo-name>/ (always git):
 git -C "repo/<repo-name>" diff --diff-filter=ACM --name-only HEAD \
   | grep -Ev '^(vendor/|generated/|dist/|zz_generated\.)' \
   | xargs -r -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh --execute "repo/<repo-name>/{}"
+
+# For workspace-root files (jj-first):
+if test -d .jj && command -v jj >/dev/null 2>&1; then
+  jj diff --summary | grep -v '^D ' | cut -d' ' -f2-
+else
+  git diff --diff-filter=ACM --name-only HEAD
+fi | xargs -r -I {} bash .opencode/skills/ascii-scanner/ascii_scanner.sh --execute "{}"
 
 # Example: non-repo paths
 bash .opencode/skills/ascii-scanner/ascii_scanner.sh --execute AGENTS.d/qa-checklist.md
@@ -38,7 +47,9 @@ find . -name '*.sh' -not -path './repo/*/vendor/*' -print0 | xargs -0 shellcheck
 
 ## PR Prep Smoke
 - See `AGENTS.d/pr-workflow.md` for dry-run rebase/push/signoff checks.
-- Ensure no AGENTS files are staged: `git diff --cached --name-only | grep -E '^AGENTS(\.d/|\.md$)'` should be empty.
+- Ensure no AGENTS files are about to be committed:
+  - git: `git diff --cached --name-only | grep -E '^AGENTS(\.d/|\.md$)'` should be empty.
+  - jj: `jj diff --summary | cut -d' ' -f2- | grep -E '^AGENTS(\.d/|\.md$)'` should be empty. jj has no staging area; all tracked changes go into the next commit.
 - If you touched Go repos, confirm go.mod/go.sum are clean (no local replace; tidy if needed per repo rules).
 
 ## YAML Duplicate-Key Gate

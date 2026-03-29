@@ -1,5 +1,25 @@
 # PR Workflow (Detailed)
 
+## Version Control: jj-first
+
+If `.jj/` is present in the workspace root, prefer jj commands. The git commands in
+this file are the fallback for git-only environments. See the `jj-vcs` skill for a
+full jj command reference including the PR workflow equivalents.
+
+| Step | git (fallback) | jj (preferred) |
+|------|---------------|----------------|
+| Check clean | `git status --porcelain` | `jj diff --summary` (empty = clean) |
+| Fetch upstream | `git fetch upstream` | `jj git fetch` |
+| New branch | `git switch -c <id> upstream/<branch>` | `jj new <remote>/<branch>` then `jj bookmark create <id> -r @` |
+| Rebase | `git rebase upstream/<branch>` | `jj rebase -d <remote>/<branch>` |
+| Squash | `git rebase -i upstream/<branch>` | `jj squash` |
+| Signoff | `git commit -s -m "..."` | `jj describe -m "...\n\nSigned-off-by: Name <email>"` |
+| Push | `git push -u origin HEAD` | `jj git push --bookmark <name>` |
+| Force push | `git push --force-with-lease origin HEAD` | `jj git push --force-bookmark <name>` |
+
+Note: `jj workspace add` inside `repo/*` subrepos is subject to the same Dapper
+bind-mount restriction as `git worktree`. Use `jj new` + `jj bookmark` instead.
+
 ## Worktree Restriction for `repo/*` Subrepos
 
 **Do NOT use `git worktree` inside any `repo/*` subrepo.**

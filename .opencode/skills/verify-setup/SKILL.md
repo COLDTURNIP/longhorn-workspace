@@ -1,3 +1,11 @@
+---
+name: verify-setup
+description: >
+  Use after workspace initialization, before starting development work, or when the
+  Go toolchain, Docker daemon, Dapper, or git remotes are suspected to be misconfigured.
+  Also use as a plan-gate check before executing a multi-step implementation plan.
+---
+
 # Skill: verify-setup
 
 ## Purpose

@@ -1,6 +1,9 @@
 ---
 name: longhorn-user-docs
-description: Version-aware workflow to read Longhorn user documentation from local website Markdown sources and longhorn.io/docs.
+description: >
+  Use when the user needs operational guidance from Longhorn docs: installation, upgrade,
+  settings, UI steps, or version-specific troubleshooting. Do NOT use for source code
+  internals or controller behavior.
 compatibility: opencode
 metadata:
   repos: longhorn (website)

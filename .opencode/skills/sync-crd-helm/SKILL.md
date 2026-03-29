@@ -1,6 +1,8 @@
 ---
 name: sync-crd-helm
-description: Atomic pipeline to sync CRD changes from Manager to Helm chart and deployment manifests.
+description: >
+  Use when API types under longhorn-manager/pkg/apis/ were modified, CI fails with
+  "crds.yaml out of sync", or a release requires updating deploy/longhorn.yaml.
 metadata:
   repos: "repo/longhorn-manager", "repo/longhorn"
   impact: High (Cross-repo API consistency)
