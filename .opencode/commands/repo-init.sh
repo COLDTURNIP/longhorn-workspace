@@ -270,9 +270,11 @@ init_repo() {
             if [ -n "$origin_repo_url" ]; then
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.push origin"
+                info "[DRY-RUN] cd \"$target_path\" && jj config set --repo remotes.origin.auto-track-bookmarks '\"*\"'"
             else
                 info "[DRY-RUN] cd \"$target_path\" && jj config set --repo git.fetch '[\"upstream\"]'"
                 info "[DRY-RUN] cd \"$target_path\" && jj config unset --repo git.push (if set)"
+                info "[DRY-RUN] cd \"$target_path\" && jj config unset --repo remotes.origin.auto-track-bookmarks (if set)"
             fi
             info "[DRY-RUN] cd \"$target_path\" && detect upstream trunk by refs/remotes/upstream/main then master (prefer main)"
             info "[DRY-RUN] cd \"$target_path\" && jj bookmark track <trunk-branch> --remote=upstream"
@@ -361,6 +363,9 @@ init_repo() {
                 if ! run_cmd "jj config set --repo git.push origin"; then
                     exit 12
                 fi
+                if ! run_cmd "jj config set --repo remotes.origin.auto-track-bookmarks '"*"'"; then
+                    exit 12
+                fi
             else
                 if [ "$has_origin_remote" = true ]; then
                     if ! run_cmd "jj config set --repo git.fetch '[\"upstream\",\"origin\"]'"; then
@@ -369,12 +374,18 @@ init_repo() {
                     if ! run_cmd "jj config set --repo git.push origin"; then
                         exit 12
                     fi
+                    if ! run_cmd "jj config set --repo remotes.origin.auto-track-bookmarks '\"*\"'"; then
+                        exit 12
+                    fi
                     result_origin_tracking="pending-origin-trunk-check"
                 else
                     if ! run_cmd "jj config set --repo git.fetch '[\"upstream\"]'"; then
                         exit 7
                     fi
                     if ! run_cmd "jj config unset --repo git.push || true"; then
+                        exit 7
+                    fi
+                    if ! run_cmd "jj config unset --repo remotes.origin.auto-track-bookmarks"; then
                         exit 7
                     fi
                 fi
