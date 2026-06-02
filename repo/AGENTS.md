@@ -2,7 +2,7 @@
 
 **Context**: This guide is a specialized extension of the workspace root "AGENTS.md".
 **Inheritance**: All global policies (Git Workflow, ASCII-Only, Ghost Files) defined in the root "AGENTS.md" apply strictly to this directory.
-**Focus**: Component categorization, Dapper build toolchains, and dependency impact analysis.
+**Focus**: Component categorization, Make/Docker build toolchains, and dependency impact analysis.
 
 ---
 
@@ -12,7 +12,7 @@ You MUST identify the repository type before modifying code to determine the all
 
 * **Type A: Team-Owned Native Components (Allowlist)**
     * *Policy*: Full Refactoring and Feature Work Allowed.
-    * *Build System*: Dapper (Containerized).
+    * *Build System*: Make targets backed by Docker Buildx and Dockerfile stages for current native repos.
     * *Repositories*:
         - longhorn-manager (Orchestration and API)
         - longhorn-engine (Storage Engine Controller)
@@ -44,16 +44,16 @@ You MUST identify the repository type before modifying code to determine the all
 ## 2. The Build Contract (CRITICAL)
 
 * **Native Longhorn Components (Type A and B)**
-    * *Constraint*: NEVER run "go build" or "go test" directly on the host. These repos rely on "scripts/" wrapping Dapper.
+    * *Constraint*: Use the repo Makefile as the authoritative build/test interface. Do not use host "go build" or "go test" as final verification. Current native repos generally run Docker Buildx against Dockerfile targets such as "build-artifacts", "validate", "test-artifacts", and "ci-artifacts".
     * *Command: Build*
         - Use: `make build`
-        - Action: Compiles binaries inside Dapper container.
+        - Action: Compiles binaries in the repo-defined container build stage and writes artifacts locally when configured.
     * *Command: Test*
         - Use: `make test`
-        - Action: Runs unit tests inside Dapper.
+        - Action: Runs tests in the repo-defined container test stage or test image. Some tests require privileged Docker mounts.
     * *Command: Validate*
         - Use: `make validate`
-        - Action: Runs linting and static analysis.
+        - Action: Runs linting and static analysis in the repo-defined container validation stage.
     * *Command: Package*
         - Use: `make package`
         - Action: Package binaries into a container image.
@@ -61,8 +61,12 @@ You MUST identify the repository type before modifying code to determine the all
         - Use: `make`
         - Action: Build, validate, test, and package.
 
+* **Legacy Dapper Repos**
+    * *Constraint*: Some shared/helper repos may still have a ".dapper" Makefile target and "Dockerfile.dapper". For these repos only, follow the Dapper-backed Makefile until the repo is migrated.
+    * *Examples in some workspaces*: types, backupstore, sparse-tools.
+
 * **Upstream and Others (Type C and Integration)**
-    * *Constraint*: Do not assume "scripts/" exists.
+    * *Constraint*: Do not assume native Buildx targets or "scripts/" conventions exist.
     * *CSI Sidecars*:
         - Action: Check "Makefile" or "release-tools/". Follow upstream conventions.
     * *UI (longhorn-ui)*:

@@ -1,16 +1,21 @@
 # Build Contract (Detailed)
 
 ## Type A/B (Native Longhorn Components)
-- Use Dapper via Make targets:
-  - Build: `make`
+- Use the repo Makefile as the authoritative interface. Current native repos usually delegate to Docker Buildx and Dockerfile stages:
+  - Build: `make build`
   - Test: `make test`
   - Validate: `make validate`
+  - CI/default: `make`
   - Clean: `make clean`
-- Do NOT run `go build`/`go test` directly on host.
-- Do NOT use `git worktree` in these repos. Dapper binds the build container to the repo root path; worktrees break this bind-mount. Use working branches instead. See `AGENTS.d/pr-workflow.md`.
+- Do NOT use host `go build`/`go test` as final verification. Quick local debugging is acceptable only when followed by the repo Make target.
+- Do NOT assume all repos share the same targets. Inspect the local Makefile/Dockerfile before running uncommon commands.
+
+## Legacy Dapper Repos
+- If a repo still has `.dapper` Makefile targets and `Dockerfile.dapper`, use those Make targets until that repo is migrated.
+- Dapper is no longer the default assumption for native Longhorn repos.
 
 ## Type C (CSI Sidecars / Upstream)
-- Do not assume Dapper. Check repo Makefile or release-tools.
+- Do not assume native Buildx targets. Check repo Makefile or release-tools.
 - Minimal patching only; prefer upstream workflows.
 
 ## UI / Integration

@@ -24,7 +24,7 @@ usage() {
 cat <<USAGE
 Usage: $SCRIPT_NAME [options]
 
-Validate Longhorn workspace prerequisites (Go, Docker, Dapper/make, git remotes, clean tree).
+Validate Longhorn workspace prerequisites (Go, Docker, Docker Buildx, make, git remotes, clean tree).
 
 Options:
   --execute           Run all checks (default)
@@ -46,7 +46,7 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
 fi
 
 if [ "$DRY_RUN" = true ] && [ "$PLAN_MODE" != true ]; then
-  info "Dry-run: Would check Go, Docker, make/dapper, git remotes, clean tree"
+  info "Dry-run: Would check Go, Docker, Docker Buildx, make, git remotes, clean tree"
   exit "$EXIT_OK"
 fi
 
@@ -111,13 +111,14 @@ check_docker() {
   info "Docker daemon reachable"
 }
 
-check_make() {
+check_make_and_buildx() {
   if ! command -v make >/dev/null 2>&1; then
     die "make command missing. Install build-essential or equivalent"
   fi
-  if ! command -v dapper >/dev/null 2>&1; then
-    warn "dapper binary not found in PATH; make will download it on demand"
+  if ! docker buildx version >/dev/null 2>&1; then
+    die "docker buildx unavailable. Install/enable Docker Buildx before running native Longhorn Make targets"
   fi
+  info "Make and Docker Buildx available"
 }
 
 check_git_remotes() {
@@ -172,7 +173,7 @@ check_path() {
 
 check_go
 check_docker
-check_make
+check_make_and_buildx
 check_git_remotes
 check_clean_tree
 check_path

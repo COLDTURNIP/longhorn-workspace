@@ -1,336 +1,159 @@
 ---
 name: longhorn-build-system
 description: >
-  Use when asked how make targets work in Longhorn repos, adding a new build task,
-  debugging a Dapper build failure, or unfamiliar with why Makefiles are so minimal.
+  Use when asked how Make targets work in Longhorn repos, adding or debugging a
+  build/test/validate/package task, checking Docker Buildx behavior, or deciding
+  whether a repo still uses a legacy Dapper flow.
 compatibility: opencode
 metadata:
-  applies-to: longhorn-manager, longhorn-engine, longhorn-instance-manager
-  excludes: csi-* repos
-  version: "1.0"
+  applies-to: longhorn-manager, longhorn-engine, longhorn-instance-manager, longhorn-share-manager, backing-image-manager, longhorn-spdk-engine, cli, shared helper repos
+  excludes: csi-* repos unless their own Makefile says otherwise
+  version: "2.0"
 ---
 
 # Longhorn Build System
 
-## What I do
+## What I Do
 
-- Explain the convention where `scripts/` filenames automatically become Make targets
-- Show how Dapper containers ensure reproducible builds across different machines
-- Provide examples of adding new build tasks without editing Makefiles
-- Document standard scripts: `build`, `test`, `validate`, `ci`, `package`
+- Explain the current Longhorn Make + Docker Buildx build model.
+- Map common Make targets to Dockerfile stages and scripts.
+- Keep legacy Dapper guidance scoped to repos that still declare `.dapper` and `Dockerfile.dapper`.
+- Provide agent-safe verification rules for build, test, validate, CI, and package work.
 
-## When to use me
+## Core Rule
 
-Use this skill when:
+Use the repo Makefile as the authoritative build/test interface.
 
-- You need to understand how `make build` or `make test` actually works
-- You're adding a new build task and want to follow Longhorn conventions
-- You're debugging build issues and need to understand the Dapper environment
-- You're new to Longhorn and wonder why Makefiles are so simple
+For current native Longhorn repos, Make usually runs Docker Buildx against
+multi-stage Dockerfiles. Do not treat host `go build` or `go test` as final
+verification. Quick host-side Go commands can be useful for iteration, but the
+result that matters is the repo Make target.
 
-## How It Works
+## Current Native Pattern
 
-### The Makefile Convention
-
-All Longhorn component repos use this standard Makefile pattern:
+Many native repos define explicit Make targets like this:
 
 ```makefile
-PROJECT := longhorn-manager
-TARGETS := $(shell ls scripts)
+build:
+	docker buildx build --target build-artifacts --output type=local,dest=. -f Dockerfile .
 
-$(TARGETS): .dapper
-	./.dapper $@
+validate:
+	docker buildx build --target validate -f Dockerfile .
+
+test:
+	docker buildx build --target test-artifacts --output type=local,dest=. -f Dockerfile .
+
+ci:
+	docker buildx build --target ci-artifacts --output type=local,dest=. -f Dockerfile .
+
+package:
+	bash scripts/package
 
 .DEFAULT_GOAL := ci
 ```
 
-### What This Means
+Some repos build a test image first and then run it with `docker run`, often
+with privileged flags or host mounts for storage tests. Always read the local
+Makefile before assuming a target is pure `docker buildx build`.
 
-1. **Script Discovery**: `TARGETS := $(shell ls scripts)` dynamically discovers all files in the `scripts/` directory
-2. **Target Generation**: Each script filename automatically becomes a Make target via the pattern rule `$(TARGETS):`
-3. **Dapper Execution**: All targets are executed inside a Dapper containerized environment (`./.dapper $@`)
-4. **Default Behavior**: Running `make` without arguments executes `make ci`
+## Dockerfile Stages
 
-### Concrete Example
+Current native Dockerfiles usually define these stages:
 
-Given this `scripts/` directory structure:
-```
-longhorn-manager/scripts/
-|-- build
-|-- ci
-|-- package
-|-- test
-+-- validate
-```
+| Stage | Purpose |
+|-------|---------|
+| `base` | Toolchain, system packages, vendored module flags, source copy |
+| `build` | Runs `./scripts/build` |
+| `validate` | Runs `./scripts/validate` |
+| `test` | Runs `./scripts/test` when tests can run inside a build stage |
+| `build-artifacts` | Copies built binaries to local output |
+| `test-artifacts` | Copies coverage or test output to local output |
+| `ci-artifacts` | Combines CI outputs such as binaries, validation markers, and coverage |
 
-You automatically get these Make targets:
-```bash
-make build      # Executes scripts/build in Dapper container
-make ci         # Executes scripts/ci in Dapper container
-make package    # Executes scripts/package in Dapper container
-make test       # Executes scripts/test in Dapper container
-make validate   # Executes scripts/validate in Dapper container
-```
+`GOFLAGS=-mod=vendor` is commonly set in the Dockerfile, not by the host shell.
+The Dockerfile is the source of truth for Go version, OS packages, lint version,
+build tags, and required native libraries.
 
-**No need to modify the Makefile** when adding new scripts - they're automatically available as targets.
+## Quick Reference
 
----
+| Command | Purpose | Notes |
+|---------|---------|-------|
+| `make` | Default CI target | Usually equivalent to `make ci` |
+| `make build` | Build binaries | Usually writes `bin/` artifacts locally |
+| `make test` | Run unit tests | May run inside Buildx or a privileged test container |
+| `make validate` | Lint/static checks | Usually a Dockerfile `validate` stage |
+| `make ci` | CI-equivalent artifact build | Usually writes artifacts locally |
+| `make package` | Build/publish image artifacts | Usually delegates to `scripts/package` |
+| `make generate` | Repo-specific generation | Common in `longhorn-manager`; inspect Makefile |
 
-## Special Cases
+## Legacy Dapper Repos
 
-### 1. `make generate` (longhorn-manager only)
-
-This is a **special target** defined separately in the Makefile:
-
-```makefile
-generate:
-	bash k8s/generate_code.sh
-```
-
-**Purpose**: Generate Kubernetes CRDs from Go source code  
-**Output**: `/longhorn-manager/k8s/crds.yaml` and generated clientsets  
-**Note**: This is NOT a script in `scripts/` - it's explicitly defined in the Makefile
-
-### 2. Workflow-specific targets
-
-Some repos define additional targets for CI/CD workflows:
+Some shared/helper repos may still use the older dynamic script pattern:
 
 ```makefile
-workflow-image-build-push: buildx-machine
-	MACHINE=$(MACHINE) PUSH='true' IMAGE_NAME=$(PROJECT) bash scripts/package
-```
+TARGETS := $(shell ls scripts)
 
-These are used by GitHub Actions but typically not invoked manually.
-
----
-
-## Usage Guidelines
-
-### Adding a New Build Task
-
-To add a new build operation:
-
-1. Create a shell script in `scripts/` directory:
-   ```bash
-   vim scripts/integration-test
-   ```
-
-2. Make it executable:
-   ```bash
-   chmod +x scripts/integration-test
-   ```
-
-3. Use the new target:
-   ```bash
-   make integration-test
-   ```
-
-**That's it!** No Makefile changes needed.
-
-### Debugging Build Issues
-
-If `make build` fails:
-
-1. **Check if script exists**:
-   ```bash
-   ls -l scripts/build
-   ```
-
-2. **Run script directly** (outside Dapper for debugging):
-   ```bash
-   bash scripts/build
-   ```
-
-3. **Check Dapper logs** (run via Make):
-   ```bash
-   make build
-   ```
-
-4. **Inspect Dapper environment**:
-   ```bash
-   cat Dockerfile.dapper
-   ```
-
-### Common Script Patterns
-
-Most scripts follow this structure:
-
-```bash
-#!/bin/bash
-set -e  # Exit on error
-
-cd "$(dirname "$0")/.."  # Change to repo root
-
-# Script logic here
-# Usually calls: go build, go test, golangci-lint, etc.
-```
-
----
-
-## Dapper Environment
-
-### What is Dapper?
-
-Dapper is a containerized build tool that ensures **reproducible builds** across different developer machines by running all build commands inside a Docker container.
-
-### Environment Details
-
-Each repo's `Dockerfile.dapper` defines:
-- **Base image**: Usually `registry.suse.com/bci/golang:1.25`
-- **Go version**: 1.24-1.25 (via toolchain)
-- **Build tools**: golangci-lint, Docker CLI, buildx
-- **Dependencies**: Uses vendored Go modules (`GOFLAGS=-mod=vendor`)
-
-### How Scripts Access Dapper
-
-The Makefile's `.dapper` target automatically downloads Dapper if missing:
-
-```makefile
 .dapper:
 	@echo Downloading dapper
 	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
 	@chmod +x .dapper.tmp
 	@./.dapper.tmp -v
 	@mv .dapper.tmp .dapper
+
+$(TARGETS): .dapper
+	./.dapper $@
 ```
 
-### Discovering Available Environment Variables
+Treat Dapper as a repo-local legacy implementation detail, not the workspace
+default. If a repo has both `.dapper` Makefile targets and `Dockerfile.dapper`,
+follow that repo's Makefile and inspect `Dockerfile.dapper` for environment
+variables such as `DAPPER_ENV`.
 
-Dapper uses the `DAPPER_ENV` directive in `Dockerfile.dapper` to define which
-host environment variables are passed through into the container. To discover
-what options a repo supports:
+## Adding or Changing Build Tasks
 
-1. Open the repo's `Dockerfile.dapper`
-2. Find the `ENV DAPPER_ENV=...` line
-3. Variables listed there can be set on the host and will be available inside
-   the Dapper container
+For Buildx-native repos:
 
-Example from `longhorn-manager/Dockerfile.dapper`:
-```dockerfile
-ENV DAPPER_ENV="IMAGE REPO VERSION TAG TESTS DRONE_REPO DRONE_PULL_REQUEST DRONE_COMMIT_REF NO_PACKAGE ARCHS"
+1. Read the existing Makefile and Dockerfile stages.
+2. Add or adjust the script under `scripts/` only when the Dockerfile stage
+   already calls it or will be updated to call it.
+3. Add or update the Make target when the task must be invokable directly.
+4. Keep artifacts explicit with `--output type=local,dest=.` when local files
+   are expected.
+
+For legacy Dapper repos, adding an executable file under `scripts/` may still
+create a Make target automatically, but only rely on that when the Makefile uses
+`TARGETS := $(shell ls scripts)`.
+
+## Debugging Build Issues
+
+1. Inspect `Makefile` to identify the exact command and target.
+2. Inspect `Dockerfile` for the stage invoked by Make.
+3. Inspect the called script under `scripts/`.
+4. Reproduce with the same Make target before using host-side shortcuts.
+5. If the target uses `docker run`, check required privileges and mounts such as
+   `/dev`, `/proc`, `/sys`, `/tmp`, or bind propagation.
+
+Common Buildx checks:
+
+```bash
+docker buildx version
+docker buildx ls
+make validate
+make test
 ```
 
-Common pass-through variables across Longhorn repos:
+## Agent Verification Rules
 
-| Variable | Purpose | Supported Repos |
-|----------|---------|-----------------|
-| `TESTS` | Filter test cases (via `-check.f`) | longhorn-manager |
-| `ARCHS` | Multi-arch build targets (e.g., `amd64 arm64`) | longhorn-manager, longhorn-share-manager, backing-image-manager |
-| `SKIP_TASKS` | Skip specific CI stages | longhorn-engine, longhorn-instance-manager |
-| `NO_PACKAGE` | Skip Docker image packaging | longhorn-manager |
-| `TAG` / `REPO` / `IMAGE` | Image tagging and registry | Most repos |
-
-**Note**: Each repo may support different variables. Always check
-`Dockerfile.dapper` for the authoritative list.
-
----
-
-## Standard Script Behavior
-
-### `scripts/build`
-- Builds binaries for current architecture (amd64/arm64)
-- Outputs to `bin/` directory
-- Uses `CGO_ENABLED=0` for static linking
-- Adds version/commit metadata via `-ldflags`
-
-### `scripts/test`
-- Runs all Go tests with `-race` detector (amd64 only)
-- Generates `coverage.out`
-- Supports `TESTS` env var for filtering tests (longhorn-manager only):
-  ```bash
-  TESTS="TestVolumeLifeCycle" make test
-  ```
-- Other repos do not currently support test filtering via environment variables
-
-### `scripts/validate`
-- Runs `go vet` (static analysis)
-- Runs `golangci-lint run --timeout=5m`
-- Runs `go fmt` check (must produce no output)
-
-### `scripts/ci`
-- Typically chains: `build` -> `validate` -> `test`
-- This is the default target (`make` = `make ci`)
-
-### `scripts/package`
-- Builds Docker images
-- Supports multi-platform builds (buildx)
-- Tags images based on branch/tag
-
----
-
-## Quick Reference
-
-| Command | Script Executed | Purpose |
-|---------|----------------|---------|
-| `make` | `scripts/ci` | Full CI: build + validate + test |
-| `make build` | `scripts/build` | Build binaries |
-| `make test` | `scripts/test` | Run tests |
-| `make validate` | `scripts/validate` | Lint and format check |
-| `make package` | `scripts/package` | Build Docker images |
-| `make generate` | `k8s/generate_code.sh` | Generate CRDs (longhorn-manager only) |
-
----
-
-## Key Takeaways
-
-1. **Convention over configuration**: Script names = Make targets
-2. **No Makefile edits needed**: Just add scripts to `scripts/`
-3. **Dapper ensures consistency**: Same build environment for everyone
-4. **Standard patterns**: All Longhorn repos follow this convention
-5. **Special case**: `make generate` is explicitly defined (not a script)
-
----
-
-## Guidelines for AI Agents
-
-### MUST: Use `make test` for Verification
-
-Final verification and CI-equivalent checks **MUST** use `make test` (or other
-`make` targets) instead of running `go test` directly on the host.
-
-**Rationale**: Running `go test` directly on the host may produce inconsistent
-results due to environment differences, making troubleshooting unreliable
-without a common baseline.
-
-### Why Direct `go test` is Discouraged
-
-The Dapper container provides a controlled environment that eliminates
-variability from:
-
-- **Go toolchain version**: Host may have different Go version than CI
-- **System packages and libraries**: Some tests require specific native
-  dependencies (e.g., SPDK libraries, iSCSI tools)
-- **Privileged operations**: Tests may need access to `/dev`, `/sys`, loop
-  devices, or hugepages
-- **Docker availability**: Some test suites spin up helper containers (e.g.,
-  NFS server for backupstore tests)
-- **Build flags**: Dapper sets `GOFLAGS=-mod=vendor` and repo-specific tags
-  (e.g., `-tags="test qcow"` in longhorn-engine)
-- **Race detector and timeout**: Scripts enforce consistent `-race` (amd64) and
-  `-timeout` settings
-
-### SHOULD: Use `go test` Only for Quick Local Debugging
-
-`go test` may be used for rapid local iteration during development, but:
-
-- Never treat `go test` results as the authoritative outcome
-- Always confirm with `make test` before considering a fix complete
-- Be aware that passing `go test` locally does not guarantee CI will pass
-
-### Troubleshooting Baseline
-
-When investigating test failures:
-
-1. **Reproduce inside Dapper first**: Use `make test` to confirm the failure
-2. **Compare environments**: If `go test` passes locally but `make test` fails,
-   the difference is likely environmental
-3. **Check Dockerfile.dapper**: Review what system dependencies, mounts, or
-   privileged access the test environment requires
-
----
+- MUST use Make targets for final build/test/validate verification.
+- SHOULD mention when verification was skipped because Docker, Buildx, network,
+  or privileged mounts were unavailable.
+- MAY use host `go test` for fast local debugging only when followed by Make.
+- MUST inspect non-native repos, CSI sidecars, UI, and test repos before choosing
+  commands; do not assume native Longhorn targets.
 
 ## References
 
-- See any component repo's `Makefile` for the actual implementation
-- See `Dockerfile.dapper` for build environment specification
-- Dapper documentation: https://github.com/rancher/dapper
+- Repo Makefile: target names, Docker Buildx invocations, package commands.
+- Repo Dockerfile: build environment and stage behavior.
+- Repo scripts: implementation of build, test, validate, ci, package.
+- `repo/AGENTS.md` and `AGENTS.d/build-contract.md`: workspace policy.

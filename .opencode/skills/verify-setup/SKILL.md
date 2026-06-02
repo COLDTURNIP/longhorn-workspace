@@ -2,7 +2,7 @@
 name: verify-setup
 description: >
   Use after workspace initialization, before starting development work, or when the
-  Go toolchain, Docker daemon, Dapper, or git remotes are suspected to be misconfigured.
+  Go toolchain, Docker daemon, Docker Buildx, make, or git remotes are suspected to be misconfigured.
   Also use as a plan-gate check before executing a multi-step implementation plan.
 ---
 
@@ -10,7 +10,7 @@ description: >
 
 ## Purpose
 
-This skill validates a Longhorn developer workspace after initialization. It checks toolchain readiness (Go version, Docker daemon, Dapper/make availability), git remote configuration, and workspace hygiene before development begins.
+This skill validates a Longhorn developer workspace after initialization. It checks toolchain readiness (Go version, Docker daemon, Docker Buildx, make availability), git remote configuration, and workspace hygiene before development begins.
 
 ## Usage
 
@@ -39,8 +39,8 @@ bash .opencode/skills/verify-setup/verify_setup.sh [options]
    - Verifies `go` binary exists and prints version (expects Go >= 1.21; configurable via env `MIN_GO_VERSION`).
 2. **Docker daemon**
    - Runs `docker info` to ensure Docker daemon is reachable.
-3. **Dapper/make**
-   - Verifies `make` is available (required for Dapper builds) and warns if `dapper` binary is missing.
+3. **Make/Docker Buildx**
+   - Verifies `make` is available and `docker buildx version` works. Current native Longhorn repos use Make targets backed by Docker Buildx and Dockerfile stages.
 4. **Git remotes**
    - Warns (instead of failing) if `upstream` remote or its HEAD reference is missing, so the script can run in freshly cloned workspaces.
    - Warns if `origin` remote is missing (since PRs normally push to `origin`).

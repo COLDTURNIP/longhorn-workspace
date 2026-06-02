@@ -41,8 +41,9 @@ find . -name '*.sh' -not -path './repo/*/vendor/*' -print0 | xargs -0 shellcheck
 - If there are many unrelated changes in test files, stop and reduce scope before continuing.
 
 ## Build/Test Pointers (per repo type)
-- Type A/B (Dapper): run `make -C repo/<repo-name> build validate test`; this invokes Dapper by default--do not run `go test`/`go build` directly.
-- UI (longhorn-ui): run `npm install` when deps change, then `npm run build` and `npm test` (no Dapper).
+- Type A/B native repos: run `make -C repo/<repo-name> build validate test`; current native repos usually invoke Docker Buildx/Dockerfile stages. Do not treat host `go test`/`go build` as final verification.
+- Legacy Dapper repos: if the repo Makefile still uses `.dapper` and `Dockerfile.dapper`, follow that repo's Makefile.
+- UI (longhorn-ui): run `npm install` when deps change, then `npm run build` and `npm test`.
 - CSI sidecars: use each repo's Makefile/release-tools targets (e.g., build/test); avoid ad-hoc `go test`.
 
 ## PR Prep Smoke

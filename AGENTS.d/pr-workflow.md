@@ -17,14 +17,15 @@ full jj command reference including the PR workflow equivalents.
 | Push | `git push -u origin HEAD` | `jj git push --bookmark <name>` |
 | Force push | `git push --force-with-lease origin HEAD` | `jj git push --force-bookmark <name>` |
 
-Note: `jj workspace add` inside `repo/*` subrepos is subject to the same Dapper
-bind-mount restriction as `git worktree`. Use `jj new` + `jj bookmark` instead.
+Note: avoid `jj workspace add` inside `repo/*` subrepos by default. The
+workspace workflow is branch/bookmark oriented, and some subrepos still have
+path-sensitive container build flows. Use `jj new` + `jj bookmark` instead.
 
-## Worktree Restriction for `repo/*` Subrepos
+## Worktree Guidance for `repo/*` Subrepos
 
-**Do NOT use `git worktree` inside any `repo/*` subrepo.**
+**Do NOT use `git worktree` inside any `repo/*` subrepo by default.**
 
-Rancher Dapper mounts the repository root into an isolated build container using the on-disk path. A worktree places the working tree at a different path, which breaks Dapper's bind-mount and Make targets (`make build`, `make test`, `make validate`) will fail or operate on the wrong tree.
+Most Longhorn subrepo workflows are written for normal working branches, and some legacy container build paths are still path-sensitive. Worktrees are allowed only when the repo-specific guide explicitly permits them and the local Makefile has been checked for path-sensitive build assumptions.
 
 **Use working branches instead:**
 ```sh
@@ -32,7 +33,7 @@ Rancher Dapper mounts the repository root into an isolated build container using
 git switch -c <storyid>-brief upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
 ```
 
-This restriction applies to all Dapper-based repos (longhorn-manager, longhorn-engine, instance-manager, share-manager, etc.). It does NOT apply to the workspace root or non-Dapper repos where worktrees are safe.
+This restriction does NOT apply to the workspace root or repos whose local guidance explicitly allows worktrees.
 
 ## Preparation
 - Clean working tree: `git status --porcelain && git diff --exit-code && git diff --cached --exit-code`

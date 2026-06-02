@@ -29,14 +29,15 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - **Minimal scope**: change only what the request requires; upstream-derived repos (csi-\*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.
 - **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/init-workspace` (defaults to executing; offer `--dry-run` if they want a preview). This command already covers repository initialization and index generation.
 - **Tests**: do not edit existing test cases in `*_test.go` files unless the user explicitly requests changes to that specific test case or file.
-- **No git worktrees in `repo/*`**: Rancher Dapper binds the build container to the repo root directory; git worktrees place the working tree at a different path and break Dapper's assumptions. For `repo/*` subrepos, always use working branches (`git switch -c`) instead of worktrees. Details -> `AGENTS.d/pr-workflow.md`.
+- **No git worktrees in `repo/*` by default**: several subrepos still have path-sensitive containerized build flows, and the workspace PR workflow expects normal working branches. Use working branches (`git switch -c`) inside subrepos unless the repo-specific guide explicitly permits a worktree. Details -> `AGENTS.d/pr-workflow.md`.
 
 ## Toolchain Quick Reference
 
-- Native Longhorn repos (manager, engine, instance-manager, share-manager, etc.): run `make build`, `make test`, `make validate` (Dapper). Do **not** run `go build`/`go test` directly.
+- Native Longhorn repos (manager, engine, instance-manager, share-manager, etc.): run `make build`, `make test`, `make validate`. Current native repos generally use Docker Buildx and Dockerfile stages behind Make. Do **not** treat host `go build`/`go test` as final verification.
 - longhorn-ui: `npm install && npm run build`; tests via `npm test`.
 - longhorn-tests: `pytest` or the repo's runner.
-- Non-allowlisted/CSI repos: inspect the repo's Makefile/release tools before running commands; do not assume Dapper support.
+- Legacy Dapper repos: only use Dapper when that repo's Makefile/Dockerfile.dapper still declares it.
+- Non-allowlisted/CSI repos: inspect the repo's Makefile/release tools before running commands; do not assume native Longhorn Buildx targets.
 - Packaging/Helm work: follow `AGENTS.d/crd-helm.md` for CRD sync + Helm manifest regeneration.
 
 ## Git & PR Workflow (Summary)
@@ -68,10 +69,10 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 ```bash
 # Rebase onto upstream default before push
 
-# Build/test native repo inside Dapper
+# Build/test native repo through Make (usually Docker Buildx stages)
 make build validate test
 
-# Build container image inside Dapper
+# Build container image through repo packaging scripts
 make package
 
 # UI build/test

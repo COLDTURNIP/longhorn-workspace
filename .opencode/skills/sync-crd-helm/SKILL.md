@@ -47,5 +47,5 @@ bash .opencode/skills/sync-crd-helm/sync_crd_helm.sh
 
 ## Troubleshooting
 
-- **Permission Denied:** Ensure you have Docker/Dapper running for make generate.
+- **Permission Denied:** Ensure Docker, Docker Buildx, and Make are available for `make generate`.
 - **ASCII Violation:** If the script fails the ASCII check, inspect the Go comments in the Manager repo for emojis or non-standard symbols.
