@@ -1,0 +1,66 @@
+{
+  "jobs": {
+    "benchmark": {
+      "pipeline": "repo/longhorn-tests/benchmark_test/Jenkinsfile",
+      "reviewParameters": [
+        "TEST_SIZE",
+        "LONGHORN_PREVIOUS_VERSION",
+        "LONGHORN_REPO_URI",
+        "LONGHORN_REPO_BRANCH",
+        "CUSTOM_LONGHORN_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_ENGINE_IMAGE",
+        "CUSTOM_LONGHORN_INSTANCE_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_SHARE_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_BACKING_IMAGE_MANAGER_IMAGE",
+        "SEND_SLACK_NOTIFICATION",
+        "NOTIFY_SLACK_CHANNEL"
+      ],
+      "runner": "kbench",
+      "segments": [
+        "private",
+        "longhorn-benchmark-test"
+      ],
+      "testSource": "checkout: benchmark_test scripts and manifests",
+      "warnings": {}
+    },
+    "e2e": {
+      "pipeline": "repo/longhorn-tests/pipelines/e2e/Jenkinsfile",
+      "reviewParameters": [
+        "LONGHORN_TESTS_CUSTOM_IMAGE",
+        "CUSTOM_TEST_OPTIONS",
+        "LONGHORN_REPO_URI",
+        "LONGHORN_REPO_BRANCH",
+        "SEND_SLACK_NOTIFICATION",
+        "NOTIFY_SLACK_CHANNEL"
+      ],
+      "runner": "Robot Framework",
+      "segments": [
+        "private",
+        "longhorn-e2e-test"
+      ],
+      "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE",
+      "warnings": {
+        "RUN_V2_TEST=false": "Current pipelines/e2e/Jenkinsfile coerces RUN_V2_TEST=false to true; this wrapper refuses that effective value."
+      }
+    },
+    "regression": {
+      "pipeline": "repo/longhorn-tests/test_framework/Jenkinsfile",
+      "reviewParameters": [
+        "LONGHORN_TESTS_CUSTOM_IMAGE",
+        "CUSTOM_TEST_OPTIONS",
+        "LONGHORN_REPO_URI",
+        "LONGHORN_REPO_BRANCH",
+        "SEND_SLACK_NOTIFICATION",
+        "NOTIFY_SLACK_CHANNEL"
+      ],
+      "runner": "PyTest",
+      "segments": [
+        "private",
+        "longhorn-tests-regression"
+      ],
+      "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE",
+      "warnings": {}
+    }
+  },
+  "version": 1
+}

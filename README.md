@@ -51,6 +51,7 @@ workspace-root/
       ascii-scanner/            (ASCII policy enforcement)
       check-test-diff/          (Go test diff guard)
       interaction-mapper/       (Architectural mapping)
+      jenkins-ops/              (Approved Jenkins job operations)
       longhorn-build-system/    (Build system expertise)
       longhorn-user-docs/       (Documentation assistance)
       repo-navigator/           (Code navigation)
@@ -201,6 +202,28 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 - **longhorn-user-docs**: Assist with user documentation
   - Example: "use longhorn-user-docs skill to update documentation"
+
+- **jenkins-ops**: Safely list, trigger, monitor, inspect, and troubleshoot the approved Longhorn Jenkins jobs
+  - Example: "use jenkins-ops to review the regression job parameters"
+
+#### Jenkins Operations Environment
+
+Before using `jenkins-ops`, create or update the workspace-root `.env` file:
+
+```bash
+JENKINS_URL=https://jenkins.example.com
+JENKINS_USER=your-jenkins-user
+JENKINS_TOKEN=your-jenkins-api-token
+JENKINS_NOTIFY_SLACK_CHANNEL=your-slack-channel-id
+JENKINS_SSH_IDENTITY_FILE=~/.ssh/your-private-key
+JENKINS_SSH_USER=your-remote-user
+```
+
+- `JENKINS_URL`, `JENKINS_USER`, and `JENKINS_TOKEN` are required for Jenkins API operations. The token needs Job/Read and Job/Build.
+- `JENKINS_NOTIFY_SLACK_CHANNEL` is optional. When it is nonempty, every approved job trigger automatically sets `SEND_SLACK_NOTIFICATION=true` and passes the channel through `NOTIFY_SLACK_CHANNEL`.
+- `JENKINS_SSH_IDENTITY_FILE` and `JENKINS_SSH_USER` are required only for job-host SSH troubleshooting.
+- Keep `.env` local and never commit or share its contents. Restrict its permissions with `chmod 600 .env`.
+- Restart the AI harness after changing `.env` so new processes inherit the updated values.
 
 
 - **repo-navigator**: Navigate and search across multiple repositories
