@@ -132,6 +132,7 @@ Use this format for `repo/repo-list.json`:
 ```
 
 Format notes:
+
 - JSON key = target path under `repo/`.
 - `upstream` is required and must be a full git URL.
 - `origin` is optional and should point to your writable fork URL.
@@ -205,26 +206,21 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 - **jenkins-ops**: Safely list, trigger, monitor, inspect, and troubleshoot the approved Longhorn Jenkins jobs
   - Example: "use jenkins-ops to review the regression job parameters"
-
-#### Jenkins Operations Environment
-
-Before using `jenkins-ops`, create or update the workspace-root `.env` file:
-
-```bash
-JENKINS_URL=https://jenkins.example.com
-JENKINS_USER=your-jenkins-user
-JENKINS_TOKEN=your-jenkins-api-token
-JENKINS_NOTIFY_SLACK_CHANNEL=your-slack-channel-id
-JENKINS_SSH_IDENTITY_FILE=~/.ssh/your-private-key
-JENKINS_SSH_USER=your-remote-user
-```
+  - Before using `jenkins-ops`, create or update the workspace-root `.env` file:
+    ```bash
+    JENKINS_URL=https://jenkins.example.com
+    JENKINS_USER=your-jenkins-user
+    JENKINS_TOKEN=your-jenkins-api-token
+    JENKINS_NOTIFY_SLACK_CHANNEL=your-slack-channel-id
+    JENKINS_SSH_IDENTITY_FILE=~/.ssh/your-private-key
+    JENKINS_SSH_USER=your-remote-user
+    ```
 
 - `JENKINS_URL`, `JENKINS_USER`, and `JENKINS_TOKEN` are required for Jenkins API operations. The token needs Job/Read and Job/Build.
 - `JENKINS_NOTIFY_SLACK_CHANNEL` is optional. When it is nonempty, every approved job trigger automatically sets `SEND_SLACK_NOTIFICATION=true` and passes the channel through `NOTIFY_SLACK_CHANNEL`.
 - `JENKINS_SSH_IDENTITY_FILE` and `JENKINS_SSH_USER` are required only for job-host SSH troubleshooting.
 - Keep `.env` local and never commit or share its contents. Restrict its permissions with `chmod 600 .env`.
 - Restart the AI harness after changing `.env` so new processes inherit the updated values.
-
 
 - **repo-navigator**: Navigate and search across multiple repositories
   - Example: "use repo-navigator to find VolumeController implementation"
