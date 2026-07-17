@@ -33,6 +33,28 @@ new_private_dir
 DEFINITIONS_FILE="$PRIVATE_DIR/parameters.json"
 fetch_parameter_definitions "$JOB_ALIAS_ARG" "$DEFINITIONS_FILE"
 
+SUPPORTS_SSH_PUBLIC_KEY=false
+INJECT_SSH_PUBLIC_KEY=false
+CALLER_SSH_PUBLIC_KEY=false
+for argument in "$@"; do
+  case "$argument" in
+    CUSTOM_SSH_PUBLIC_KEY=*) CALLER_SSH_PUBLIC_KEY=true ;;
+  esac
+done
+if jq -e 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .type == "StringParameterDefinition")' "$DEFINITIONS_FILE" >/dev/null 2>&1; then
+  SUPPORTS_SSH_PUBLIC_KEY=true
+fi
+if [ "$SUPPORTS_SSH_PUBLIC_KEY" = true ] &&
+   [ "$CALLER_SSH_PUBLIC_KEY" = false ]; then
+  require_ssh_env public-key || exit $?
+  if [ -n "$JENKINS_SSH_PUBLIC_KEY_CONTENT" ]; then
+    INJECT_SSH_PUBLIC_KEY=true
+  fi
+fi
+
+
+
+
 if ! jq -e '.buildable == true' "$DEFINITIONS_FILE" >/dev/null 2>&1; then
   _jenkins_error 'Jenkins job is not buildable'
   exit "$EXIT_ARG"
@@ -45,6 +67,7 @@ if jq -e 'any(.parameters[]; (.type == "BooleanParameterDefinition" or .type == 
   _jenkins_error 'Unsupported Jenkins parameter type'
   exit "$EXIT_ARG"
 fi
+
 
 OVERRIDE_NAMES=()
 OVERRIDE_VALUES=()
@@ -114,6 +137,10 @@ if [ -n "${JENKINS_NOTIFY_SLACK_CHANNEL:-}" ]; then
   fi
   OVERRIDE_NAMES+=(SEND_SLACK_NOTIFICATION NOTIFY_SLACK_CHANNEL)
   OVERRIDE_VALUES+=(true "$JENKINS_NOTIFY_SLACK_CHANNEL")
+fi
+if [ "$INJECT_SSH_PUBLIC_KEY" = true ]; then
+  OVERRIDE_NAMES+=(CUSTOM_SSH_PUBLIC_KEY)
+  OVERRIDE_VALUES+=("$JENKINS_SSH_PUBLIC_KEY_CONTENT")
 fi
 
 

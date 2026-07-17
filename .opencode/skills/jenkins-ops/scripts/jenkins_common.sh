@@ -70,47 +70,75 @@ require_jenkins_env() {
   return 0
 }
 
-require_ssh_env() {
-  local variable_name missing=0 raw relative resolved
-  for variable_name in JENKINS_SSH_IDENTITY_FILE JENKINS_SSH_USER; do
-    if [ -z "${!variable_name:-}" ]; then
-      _jenkins_error "Missing required environment variable: ${variable_name}"
-      missing=1
-    fi
-  done
-  [ "$missing" -eq 0 ] || return 3
-
-  raw=$JENKINS_SSH_IDENTITY_FILE
+_resolve_ssh_file() {
+  local raw=$1 description=$2 relative resolved
   case "$raw" in
     "~")
       if [ -z "${HOME:-}" ]; then
-        _jenkins_error "Home directory is unavailable for SSH identity file"
+        _jenkins_error "Home directory is unavailable for ${description}"
         return 3
       fi
       resolved=$HOME
       ;;
     "~/"*)
       if [ -z "${HOME:-}" ]; then
-        _jenkins_error "Home directory is unavailable for SSH identity file"
+        _jenkins_error "Home directory is unavailable for ${description}"
         return 3
       fi
       relative=${raw#\~/}
       resolved="${HOME%/}/${relative}"
       ;;
     "~"*)
-      _jenkins_error "SSH identity file uses unsupported home shorthand"
+      _jenkins_error "${description} uses unsupported home shorthand"
       return 3
       ;;
     *)
       resolved=$raw
       ;;
   esac
-
   if [ ! -f "$resolved" ] || [ ! -r "$resolved" ]; then
-    _jenkins_error "SSH identity file is unavailable"
+    _jenkins_error "${description} is unavailable"
     return 3
   fi
-  JENKINS_SSH_IDENTITY_RESOLVED=$resolved
+  SSH_FILE_RESOLVED=$resolved
+  return 0
+}
+
+require_ssh_env() {
+  local mode=${1:-host} variable_name missing=0 public_key_content
+  case "$mode" in
+    host)
+      for variable_name in JENKINS_SSH_IDENTITY_FILE JENKINS_SSH_USER; do
+        if [ -z "${!variable_name:-}" ]; then
+          _jenkins_error "Missing required environment variable: ${variable_name}"
+          missing=1
+        fi
+      done
+      [ "$missing" -eq 0 ] || return 3
+      _resolve_ssh_file "$JENKINS_SSH_IDENTITY_FILE" 'SSH identity file' || return $?
+      JENKINS_SSH_IDENTITY_RESOLVED=$SSH_FILE_RESOLVED
+      ;;
+    public-key)
+      JENKINS_SSH_PUBLIC_KEY_CONTENT=
+      JENKINS_SSH_PUBLIC_KEY_RESOLVED=
+      [ -n "${JENKINS_SSH_PUBLIC_KEY:-}" ] || return 0
+      _resolve_ssh_file "$JENKINS_SSH_PUBLIC_KEY" 'SSH public key file' || return $?
+      if ! public_key_content=$(cat < "$SSH_FILE_RESOLVED" 2>/dev/null); then
+        _jenkins_error 'SSH public key file is unavailable'
+        return 3
+      fi
+      if [ -z "$public_key_content" ]; then
+        _jenkins_error 'SSH public key file is empty'
+        return 3
+      fi
+      JENKINS_SSH_PUBLIC_KEY_RESOLVED=$SSH_FILE_RESOLVED
+      JENKINS_SSH_PUBLIC_KEY_CONTENT=$public_key_content
+      ;;
+    *)
+      _jenkins_error 'Invalid SSH environment mode'
+      return 2
+      ;;
+  esac
   return 0
 }
 
@@ -674,28 +702,18 @@ fetch_parameter_definitions() {
   return 0
 }
 
-# Extract exact Terraform control-plane IPv4 assignments into private JSON.
+# Extract exact Terraform IPv4 and bracketed IPv6 assignments into private JSON.
 # Usage: extract_controlplane_hosts <console-file> <output-file> <alias> <build>
 extract_controlplane_hosts() {
   local console_file=$1 output_file=$2 alias=$3 build=$4
-  require_command jq || return $?
+  require_command python || return $?
   require_command chmod || return $?
   if [ ! -f "$console_file" ] || [ ! -r "$console_file" ] || [ -z "$output_file" ]; then
     _jenkins_error "Private console evidence is unavailable"
     return "$EXIT_ENV"
   fi
-  if ! jq -R -s -S --arg job "$alias" --argjson build "$build" '
-    [ split("\n")[]
-      | select(test("^controlplane_public_ip = \"[0-9]+(\\.[0-9]+){3}\"$"))
-      | capture("^controlplane_public_ip = \"(?<ip>[0-9]+(\\.[0-9]+){3})\"$").ip as $ip
-      | ($ip | split(".") | map(tonumber)) as $parts
-      | select(($parts | length) == 4 and all($parts[]; . >= 0 and . <= 255))
-      | {ip:$ip, parts:$parts}
-    ]
-    | sort_by(.parts)
-    | unique_by(.parts)
-    | {job:$job, build:$build, hosts:map(.ip)}
-  ' "$console_file" > "$output_file" 2>/dev/null; then
+  if ! python "$_JENKINS_COMMON_DIR/extract_controlplane_hosts.py" \
+      "$console_file" "$alias" "$build" > "$output_file" 2>/dev/null; then
     rm -f "$output_file" >/dev/null 2>&1 || true
     _jenkins_error "Jenkins console evidence is malformed"
     return "$EXIT_JENKINS"

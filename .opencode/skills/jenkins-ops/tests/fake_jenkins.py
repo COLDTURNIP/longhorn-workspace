@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Deterministic, loopback-only Jenkins HTTP fixture for the jenkins-ops tests."""
 
 from __future__ import annotations
@@ -70,6 +70,7 @@ SCENARIOS = {
     "required-space",
     "duplicate-identical",
     "duplicate-conflict",
+    "ssh-key-missing",
     "malformed-definitions",
     "buildable-false",
     "e2e-false-explicit",
@@ -97,9 +98,15 @@ SCENARIOS = {
     "reports-missing",
     "console-no-ip",
     "console-multiple-ip",
+    "console-ipv6",
+    "console-ipv6-compressed",
+    "console-invalid-ipv6",
+    "console-unbracketed-ipv6",
+    "console-mixed-ip",
     "wait-hang",
     "host-wait-ready",
     "host-wait-multiple",
+    "host-wait-ipv6-ready",
     "host-wait-timeout",
     "http-401",
     "http-403-read",
@@ -170,6 +177,17 @@ def _definitions(alias, mode):
             "defaultParameterValue": {"value": True},
         },
     ]
+    if alias in {"regression", "e2e"} and not (
+        alias == "regression" and mode == "ssh-key-missing"
+    ):
+        common.append(
+            {
+                "name": "CUSTOM_SSH_PUBLIC_KEY",
+                "type": "StringParameterDefinition",
+                "description": "SSH public key for test nodes",
+                "defaultParameterValue": {"value": ""},
+            }
+        )
     if alias == "e2e":
         default = True
         if mode in {"e2e-false-explicit", "e2e-false-omitted", "e2e-false-default"}:
@@ -311,10 +329,35 @@ def _console(mode):
         "Provisioning started",
         'controlplane_public_ip = "(known after apply)"',
         'controlplane_public_ip = "-> null"',
-        'controlplane_public_ip = "[2001:db8::1]"',
+        'controlplane_public_ip = "[not-an-ip]"',
         '\x1b[32mcontrolplane_public_ip = "198.51.100.9"\x1b[0m',
     ]
     if mode == "console-no-ip":
+        return "\n".join(lines) + "\nProvisioning complete\n"
+    if mode == "console-ipv6":
+        lines.extend(
+            [
+                'controlplane_public_ip = "[2600:1f18:671d:ea00:8589:9089:1065:aff9]"',
+                'controlplane_public_ip = "[2600:1F18:671D:EA00:8589:9089:1065:AFF9]"',
+            ]
+        )
+        return "\n".join(lines) + "\nProvisioning complete\n"
+    if mode == "console-ipv6-compressed":
+        lines.append('controlplane_public_ip = "[2001:0db8:0000:0000:0000:0000:0000:0001]"')
+        return "\n".join(lines) + "\nProvisioning complete\n"
+    if mode == "console-invalid-ipv6":
+        lines.append('controlplane_public_ip = "[2001:db8::zzzz]"')
+        return "\n".join(lines) + "\nProvisioning complete\n"
+    if mode == "console-unbracketed-ipv6":
+        lines.append('controlplane_public_ip = "2001:db8::1"')
+        return "\n".join(lines) + "\nProvisioning complete\n"
+    if mode == "console-mixed-ip":
+        lines.extend(
+            [
+                'controlplane_public_ip = "192.0.2.10"',
+                'controlplane_public_ip = "[2001:db8::1]"',
+            ]
+        )
         return "\n".join(lines) + "\nProvisioning complete\n"
     if mode == "console-multiple-ip":
         lines.extend(
@@ -654,6 +697,9 @@ class Handler(BaseHTTPRequestHandler):
             if scenario == "host-wait-ready":
                 console_count = self.state.count(("console", name, number))
                 mode = "console-no-ip" if console_count <= 2 else "reports-artifacts"
+            elif scenario == "host-wait-ipv6-ready":
+                console_count = self.state.count(("console", name, number))
+                mode = "console-no-ip" if console_count <= 2 else "console-ipv6"
             elif scenario == "host-wait-multiple":
                 mode = "console-multiple-ip"
             else:

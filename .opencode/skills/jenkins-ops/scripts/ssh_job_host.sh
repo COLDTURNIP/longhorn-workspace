@@ -138,18 +138,22 @@ if [ "$RESOLVE_ONLY" = true ]; then
   exit "$EXIT_OK"
 fi
 
-SSH_TARGET="${JENKINS_SSH_USER}@${HOST}"
+SSH_TARGET_ARGS=()
+case "$HOST" in
+  *:*) SSH_TARGET_ARGS=(-6 -l "$JENKINS_SSH_USER" "$HOST") ;;
+  *) SSH_TARGET_ARGS=("${JENKINS_SSH_USER}@${HOST}") ;;
+esac
 SSH_ARGS=()
 if [ "$#" -eq 0 ]; then
   SSH_ARGS=(-tt -i "$JENKINS_SSH_IDENTITY_RESOLVED" \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
-    "$SSH_TARGET")
+    "${SSH_TARGET_ARGS[@]}")
 else
   SSH_ARGS=(-i "$JENKINS_SSH_IDENTITY_RESOLVED" \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
-    "$SSH_TARGET")
+    "${SSH_TARGET_ARGS[@]}")
   SSH_ARGS+=("${REMOTE_COMMAND[@]}")
 fi
 

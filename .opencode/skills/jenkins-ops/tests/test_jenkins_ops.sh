@@ -22,6 +22,8 @@ RUN_OUTPUT=""
 RUN_STATUS=0
 ORIGINAL_PATH=${PATH:-/usr/bin:/bin}
 EVIDENCE_PATH=""
+SSH_PUBLIC_KEY_FILE=""
+SSH_PUBLIC_KEY_CONTENT=""
 
 say() {
     printf '%s\n' "$*"
@@ -36,7 +38,7 @@ check_prerequisites() {
     case ${BASH_VERSINFO[0]:-0} in
         ''|[0-2]) fail "Bash 3.2 or newer is required"; return 3;;
     esac
-    for command_name in python3 curl jq mktemp chmod; do
+    for command_name in python curl jq mktemp chmod; do
         if ! command -v "$command_name" >/dev/null 2>&1; then
             fail "Required command is unavailable: $command_name"
             return 3
@@ -108,7 +110,7 @@ start_fixture() {
     FIXTURE_OUT="$RUN_DIR/fixture-${mode}.ready"
     : > "$FIXTURE_LOG"
     : > "$FIXTURE_OUT"
-    python3 "$FIXTURE" --bind 127.0.0.1 --port 0 --ready-file "$FIXTURE_OUT" --request-log "$FIXTURE_LOG" --mode "$mode" >"$RUN_DIR/fixture-${mode}.out" 2>"$RUN_DIR/fixture-${mode}.err" &
+    python "$FIXTURE" --bind 127.0.0.1 --port 0 --ready-file "$FIXTURE_OUT" --request-log "$FIXTURE_LOG" --mode "$mode" >"$RUN_DIR/fixture-${mode}.out" 2>"$RUN_DIR/fixture-${mode}.err" &
     FIXTURE_PID=$!
     local attempt
     FIXTURE_PORT=""
@@ -240,7 +242,7 @@ assert_private_path() {
         fail "$label path does not name a file"
         return 1
     fi
-    mode=$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$path") || return 1
+    mode=$(python -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$path") || return 1
     if [ "$mode" != "0o600" ]; then
         fail "$label output mode is $mode, expected 0o600"
         return 1
@@ -251,7 +253,7 @@ assert_private_path() {
 assert_private_dir() {
     local path=$1 mode
     [ -d "$path" ] || return 1
-    mode=$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$path") || return 1
+    mode=$(python -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$path") || return 1
     [ "$mode" = "0o700" ]
 }
 
@@ -419,7 +421,7 @@ read_mode() {
 }
 
 trigger_mode() {
-    local path count notify_alias
+    local path count notify_alias trigger_alias missing_key_file empty_key_file invalid_key_file tilde_home tilde_key_name tilde_key_file tilde_key_ref tilde_key_content
     require_script trigger_job.sh || return $?
     require_script get_job_parameters.sh || return $?
     start_fixture normal || return 4
@@ -435,6 +437,18 @@ trigger_mode() {
     assert_private_dir "$(dirname "$path")" || return 1
     assert_json_file "$path" '(. | keys) == ["buildable","job","parameters","warnings"] and .buildable == true and .job == "regression" and (.parameters|type)=="array" and (.warnings|type)=="array" and ([.parameters[].name] | sort) == [.parameters[].name]' "launch plan" || return 1
     assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_TEST_OPTIONS" and .value == "-i negative --exclude cluster" and .source == "override")' "quoted test options" || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .value == "fixture-public-key-content" and .source == "override")' "regression managed SSH key injection" || return 1
+    assert_json_file "$path" "all(.parameters[]; .name != \"CUSTOM_SSH_PUBLIC_KEY\" or .value != \"$SSH_PUBLIC_KEY_FILE\")" "regression managed SSH key path exclusion" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "regression dry-run SSH key content" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_FILE" "regression dry-run SSH key path" || return 1
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e
+    assert_status 0 "e2e dry-run" || return 1
+    path=$(assert_private_path "e2e launch plan") || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .value == "fixture-public-key-content" and .source == "override")' "e2e managed SSH key injection" || return 1
+    assert_json_file "$path" "all(.parameters[]; .name != \"CUSTOM_SSH_PUBLIC_KEY\" or .value != \"$SSH_PUBLIC_KEY_FILE\")" "e2e managed SSH key path exclusion" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "e2e dry-run SSH key content" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_FILE" "e2e dry-run SSH key path" || return 1
     assert_file_absent "$path" dummy-token "launch-plan file" || return 1
     assert_all_get
     count=$(jq -s '[.[] | select(.method=="POST")] | length' "$FIXTURE_LOG")
@@ -447,6 +461,13 @@ trigger_mode() {
         assert_status 0 "Slack notification dry-run $notify_alias" || return 1
         path=$(assert_private_path "Slack notification launch plan $notify_alias") || return 1
         assert_json_file "$path" 'any(.parameters[]; .name=="SEND_SLACK_NOTIFICATION" and .value==true and .source=="override") and any(.parameters[]; .name=="NOTIFY_SLACK_CHANNEL" and .value=="C0123456789" and .source=="override")' "Slack notification launch plan $notify_alias" || return 1
+        if [ "$notify_alias" = benchmark ]; then
+            assert_json_file "$path" 'all(.parameters[]; .name != "CUSTOM_SSH_PUBLIC_KEY")' "benchmark Slack dry-run has no managed SSH key" || return 1
+        else
+            assert_json_file "$path" 'any(.parameters[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="fixture-public-key-content" and .source=="override")' "Slack dry-run managed SSH key $notify_alias" || return 1
+        fi
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "Slack dry-run SSH key content $notify_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "Slack dry-run SSH key path $notify_alias" || return 1
         assert_output_absent C0123456789 "Slack notification dry-run output $notify_alias" || return 1
         count=$(jq -s '[.[] | select(.method=="POST")] | length' "$FIXTURE_LOG")
         [ "$count" -eq 0 ] || { fail "Slack notification dry-run issued POST for $notify_alias"; return 1; }
@@ -460,7 +481,150 @@ trigger_mode() {
     run_capture "$SKILL_DIR/scripts/trigger_job.sh" regression NOTIFY_SLACK_CHANNEL=other
     assert_status 2 "managed Slack channel override refusal" || return 1
     assert_output_absent C0123456789 "managed Slack channel override refusal" || return 1
+    for trigger_alias in regression e2e; do
+        start_fixture normal || return 4
+        run_capture "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias" CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+        assert_status 0 "managed SSH key caller override $trigger_alias" || return 1
+        path=$(assert_private_path "managed SSH key caller override launch plan $trigger_alias") || return 1
+        assert_json_file "$path" '([.parameters[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length) == 1 and any(.parameters[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content" and .source=="override") and all(.parameters[]; .name!="CUSTOM_SSH_PUBLIC_KEY" or .value!="fixture-public-key-content")' "managed SSH key caller precedence $trigger_alias" || return 1
+        assert_file_absent "$path" "$SSH_PUBLIC_KEY_CONTENT" "managed SSH key env content in launch plan $trigger_alias" || return 1
+        assert_output_absent caller-public-key-content "managed SSH key caller override output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "managed SSH key env content output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "managed SSH key env path output $trigger_alias" || return 1
+        assert_all_get
+    done
+
+    for trigger_alias in regression e2e; do
+        start_fixture normal || return 4
+        run_capture "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias" CUSTOM_SSH_PUBLIC_KEY=first-caller-public-key-content CUSTOM_SSH_PUBLIC_KEY=second-caller-public-key-content
+        assert_status 2 "duplicate managed SSH key caller override $trigger_alias" || return 1
+        assert_output_absent first-caller-public-key-content "duplicate managed SSH key first caller output $trigger_alias" || return 1
+        assert_output_absent second-caller-public-key-content "duplicate managed SSH key second caller output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "duplicate managed SSH key env content output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "duplicate managed SSH key env path output $trigger_alias" || return 1
+        assert_all_get
+    done
+
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" benchmark CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+    assert_status 2 "unsupported managed SSH key caller override" || return 1
+    assert_output_absent caller-public-key-content "unsupported managed SSH key caller override output" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "unsupported managed SSH key env content output" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_FILE" "unsupported managed SSH key env path output" || return 1
     assert_all_get
+
+    for trigger_alias in regression e2e; do
+        start_fixture normal || return 4
+        run_capture_env -u JENKINS_SSH_PUBLIC_KEY "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias" CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+        assert_status 0 "caller SSH key with unset environment $trigger_alias" || return 1
+        path=$(assert_private_path "caller SSH key with unset environment launch plan $trigger_alias") || return 1
+        assert_json_file "$path" '([.parameters[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length) == 1 and any(.parameters[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content" and .source=="override") and all(.parameters[]; .name!="CUSTOM_SSH_PUBLIC_KEY" or .value!="fixture-public-key-content")' "caller SSH key with unset environment precedence $trigger_alias" || return 1
+        assert_file_absent "$path" "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key with unset environment env content $trigger_alias" || return 1
+        assert_output_absent caller-public-key-content "caller SSH key with unset environment output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key with unset environment managed content $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "caller SSH key with unset environment managed path $trigger_alias" || return 1
+        assert_all_get
+
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY= "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias" CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+        assert_status 0 "caller SSH key with empty environment $trigger_alias" || return 1
+        path=$(assert_private_path "caller SSH key with empty environment launch plan $trigger_alias") || return 1
+        assert_json_file "$path" '([.parameters[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length) == 1 and any(.parameters[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content" and .source=="override") and all(.parameters[]; .name!="CUSTOM_SSH_PUBLIC_KEY" or .value!="fixture-public-key-content")' "caller SSH key with empty environment precedence $trigger_alias" || return 1
+        assert_file_absent "$path" "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key with empty environment env content $trigger_alias" || return 1
+        assert_output_absent caller-public-key-content "caller SSH key with empty environment output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key with empty environment managed content $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "caller SSH key with empty environment managed path $trigger_alias" || return 1
+        assert_all_get
+    done
+
+    missing_key_file="$RUN_DIR/missing-ssh-public-key"
+    empty_key_file="$RUN_DIR/empty-ssh-public-key"
+    invalid_key_file="$RUN_DIR/invalid-ssh-public-key"
+    : > "$empty_key_file" || return 3
+    mkdir "$invalid_key_file" || return 3
+    for trigger_alias in regression e2e; do
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias" CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+        assert_status 0 "caller SSH key bypasses missing environment file $trigger_alias" || return 1
+        path=$(assert_private_path "caller SSH key bypasses missing environment file launch plan $trigger_alias") || return 1
+        assert_json_file "$path" '([.parameters[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length) == 1 and any(.parameters[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content" and .source=="override") and all(.parameters[]; .name!="CUSTOM_SSH_PUBLIC_KEY" or .value!="fixture-public-key-content")' "caller SSH key bypasses missing environment file precedence $trigger_alias" || return 1
+        assert_file_absent "$path" "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key bypasses missing environment file env content $trigger_alias" || return 1
+        assert_output_absent caller-public-key-content "caller SSH key bypasses missing environment file output $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "caller SSH key bypasses missing environment file managed content $trigger_alias" || return 1
+        assert_output_absent "$missing_key_file" "caller SSH key bypasses missing environment file path $trigger_alias" || return 1
+        assert_all_get
+    done
+
+
+    for trigger_alias in regression e2e; do
+        start_fixture normal || return 4
+        run_capture_env -u JENKINS_SSH_PUBLIC_KEY "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias"
+        assert_status 0 "unset SSH public key environment $trigger_alias" || return 1
+        path=$(assert_private_path "unset SSH public key launch plan $trigger_alias") || return 1
+        assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .value == "" and .source == "jenkins-default")' "unset SSH public key uses empty Jenkins default $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "unset SSH public key environment content $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "unset SSH public key environment path $trigger_alias" || return 1
+        assert_all_get
+
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY= "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias"
+        assert_status 0 "empty SSH public key environment $trigger_alias" || return 1
+        path=$(assert_private_path "empty SSH public key launch plan $trigger_alias") || return 1
+        assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .value == "" and .source == "jenkins-default")' "empty SSH public key uses empty Jenkins default $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "empty SSH public key environment content $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "empty SSH public key environment path $trigger_alias" || return 1
+        assert_all_get
+
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias"
+        assert_status 3 "unavailable SSH public key file $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "unavailable SSH public key file content $trigger_alias" || return 1
+        assert_output_absent "$missing_key_file" "unavailable SSH public key file path $trigger_alias" || return 1
+        assert_all_get
+
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY="$invalid_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias"
+        assert_status 3 "invalid SSH public key file $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "invalid SSH public key file content $trigger_alias" || return 1
+        assert_output_absent "$invalid_key_file" "invalid SSH public key file path $trigger_alias" || return 1
+        assert_all_get
+
+        start_fixture normal || return 4
+        run_capture_env JENKINS_SSH_PUBLIC_KEY="$empty_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" "$trigger_alias"
+        assert_status 3 "empty SSH public key file $trigger_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "empty SSH public key file content $trigger_alias" || return 1
+        assert_output_absent "$empty_key_file" "empty SSH public key file path $trigger_alias" || return 1
+        assert_all_get
+    done
+    tilde_home="$RUN_DIR/tilde-home"
+    tilde_key_name=".ssh/tilde-public-key"
+    tilde_key_file="$tilde_home/$tilde_key_name"
+    tilde_key_ref="~/$tilde_key_name"
+    tilde_key_content='tilde-public-key-content'
+    mkdir -p "$(dirname "$tilde_key_file")" || return 3
+    printf '%s\n' "$tilde_key_content" > "$tilde_key_file" || return 3
+    chmod 600 "$tilde_key_file" || return 3
+    start_fixture normal || return 4
+    run_capture_env HOME="$tilde_home" JENKINS_SSH_PUBLIC_KEY="$tilde_key_ref" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" regression
+    assert_status 0 "tilde SSH public key environment" || return 1
+    path=$(assert_private_path "tilde SSH public key launch plan") || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_SSH_PUBLIC_KEY" and .value == "tilde-public-key-content" and .source == "override")' "tilde SSH public key injection" || return 1
+    assert_json_file "$path" "all(.parameters[]; .name != \"CUSTOM_SSH_PUBLIC_KEY\" or .value != \"$tilde_key_file\")" "tilde SSH public key path exclusion" || return 1
+    assert_output_absent "$tilde_key_content" "tilde SSH public key content" || return 1
+    assert_output_absent "$tilde_key_ref" "tilde SSH public key shorthand" || return 1
+    assert_output_absent "$tilde_key_file" "tilde SSH public key path" || return 1
+    assert_all_get
+
+
+    start_fixture ssh-key-missing || return 4
+    run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" regression
+    assert_status 0 "missing managed SSH key Jenkins parameter is optional" || return 1
+    path=$(assert_private_path "missing managed SSH key launch plan") || return 1
+    assert_json_file "$path" 'all(.parameters[]; .name != "CUSTOM_SSH_PUBLIC_KEY")' "missing managed SSH key has no injected parameter" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "missing managed SSH key Jenkins parameter content" || return 1
+    assert_output_absent "$missing_key_file" "missing managed SSH key Jenkins parameter path" || return 1
+    assert_all_get
+
 
     start_fixture normal || return 4
     export JENKINS_NOTIFY_SLACK_CHANNEL=
@@ -476,12 +640,39 @@ trigger_mode() {
         assert_status 0 "Slack notification execute $notify_alias" || return 1
         assert_output_absent C0123456789 "Slack notification execute output $notify_alias" || return 1
         assert_log '([.[] | select(.method=="POST")] | length)==1 and all(.[] | select(.method=="POST"); any(.form[]; .name=="SEND_SLACK_NOTIFICATION" and .value=="true") and any(.form[]; .name=="NOTIFY_SLACK_CHANNEL" and .value=="C0123456789"))' "Slack notification POST $notify_alias" || return 1
+        if [ "$notify_alias" = benchmark ]; then
+            assert_log 'all(.[] | select(.method=="POST"); all(.form[]; .name != "CUSTOM_SSH_PUBLIC_KEY"))' "benchmark Slack notification has no managed SSH key" || return 1
+        else
+            assert_log 'all(.[] | select(.method=="POST"); any(.form[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="fixture-public-key-content"))' "managed SSH key POST $notify_alias" || return 1
+        fi
+        assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "execute SSH key content $notify_alias" || return 1
+        assert_output_absent "$SSH_PUBLIC_KEY_FILE" "execute SSH key path $notify_alias" || return 1
     done
-    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e RUN_V2_TEST=true
-    assert_status 0 "e2e launch warning" || return 1
-    path=$(assert_private_path "e2e launch plan") || return 1
-    assert_json_file "$path" '(.warnings|length)==1 and (.warnings[0]|contains("RUN_V2_TEST=false")) and any(.parameters[]; .name=="RUN_V2_TEST" and .value==true)' "e2e warning contract" || return 1
+    start_fixture normal || return 4
+    run_capture_env -u JENKINS_SSH_PUBLIC_KEY "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" benchmark
+    assert_status 0 "benchmark dry-run without SSH public key environment" || return 1
+    path=$(assert_private_path "benchmark launch plan without SSH public key environment") || return 1
+    assert_json_file "$path" 'all(.parameters[]; .name != "CUSTOM_SSH_PUBLIC_KEY")' "benchmark launch plan has no managed SSH key" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "benchmark dry-run without SSH public key content" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_FILE" "benchmark dry-run without SSH public key path" || return 1
+    assert_all_get
+    start_fixture normal || return 4
+    run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" benchmark
+    assert_status 0 "benchmark ignores invalid SSH public key file" || return 1
+    path=$(assert_private_path "benchmark launch plan with invalid SSH public key file") || return 1
+    assert_json_file "$path" 'all(.parameters[]; .name != "CUSTOM_SSH_PUBLIC_KEY")' "benchmark invalid SSH public key has no managed key" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "benchmark invalid SSH public key content" || return 1
+    assert_output_absent "$missing_key_file" "benchmark invalid SSH public key path" || return 1
+    assert_all_get
 
+    start_fixture post-201 || return 4
+    run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" --execute benchmark
+    assert_status 0 "benchmark execute ignores SSH public key environment" || return 1
+    assert_json_stdout '(.job == "benchmark") and (.state == "QUEUED") and (.queueId > 0)' "benchmark execute env-only result" || return 1
+    assert_log '([.[] | select(.method=="POST")] | length)==1 and all(.[] | select(.method=="POST"); all(.form[]; .name != "CUSTOM_SSH_PUBLIC_KEY"))' "benchmark execute env-only has no managed SSH key" || return 1
+    assert_output_absent "$missing_key_file" "benchmark execute env-only SSH key path" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "benchmark execute env-only SSH key content" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_FILE" "benchmark execute env-only managed SSH key path" || return 1
     start_fixture e2e-false-explicit || return 4
     run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e RUN_V2_TEST=false
     assert_status 2 "e2e false override refusal" || return 1
@@ -540,16 +731,24 @@ trigger_mode() {
     assert_all_get
 
     start_fixture post-201 || return 4
-    run_capture "$SKILL_DIR/scripts/trigger_job.sh" --execute regression 'CUSTOM_TEST_OPTIONS=-i negative --exclude cluster'
-    assert_status 0 "201 trigger" || return 1
+    run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" --execute regression 'CUSTOM_TEST_OPTIONS=-i negative --exclude cluster' CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+    assert_status 0 "201 trigger with caller-first SSH key" || return 1
     assert_json_stdout '(. | keys) == ["job","queueId","state"] and .job == "regression" and (.queueId|type)=="number" and .queueId > 0 and .state == "QUEUED"' "201 trigger result" || return 1
-    assert_log '([.[] | select(.method=="POST")] | length) == 1 and all(.[] | select(.method=="POST"); (.path=="/job/private/job/longhorn-tests-regression/buildWithParameters") and .auth=="ok" and .crumb=="ok" and (.form|length)>=1 and any(.form[]; .name=="CUSTOM_TEST_OPTIONS" and .value=="-i negative --exclude cluster") and all(.form[]; (.value|contains("dummy-token")|not)))' "201 trigger request"
+    assert_log '([.[] | select(.method=="POST")] | length) == 1 and all(.[] | select(.method=="POST"); (.path=="/job/private/job/longhorn-tests-regression/buildWithParameters") and .auth=="ok" and .crumb=="ok" and (.form|length)>=1 and any(.form[]; .name=="CUSTOM_TEST_OPTIONS" and .value=="-i negative --exclude cluster") and ([.form[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length)==1 and any(.form[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content") and all(.form[]; .value != "fixture-public-key-content" and (.value|contains("dummy-token")|not)))' "201 caller-first trigger request" || return 1
+    assert_log "all(.[] | select(.method==\"POST\"); all(.form[]; .value != \"$missing_key_file\"))" "201 caller-first trigger path exclusion" || return 1
+    assert_output_absent caller-public-key-content "201 caller-first trigger caller SSH key output" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "201 caller-first trigger env SSH key content" || return 1
+    assert_output_absent "$missing_key_file" "201 caller-first trigger env SSH key path" || return 1
 
     start_fixture post-302 || return 4
-    run_capture "$SKILL_DIR/scripts/trigger_job.sh" --execute e2e RUN_V2_TEST=true
-    assert_status 0 "302 trigger" || return 1
+    run_capture_env JENKINS_SSH_PUBLIC_KEY="$missing_key_file" "$BASH" "$SKILL_DIR/scripts/trigger_job.sh" --execute e2e RUN_V2_TEST=true CUSTOM_SSH_PUBLIC_KEY=caller-public-key-content
+    assert_status 0 "302 trigger with caller-first SSH key" || return 1
     assert_json_stdout '(.state == "QUEUED") and (.queueId > 0)' "302 trigger result" || return 1
-    assert_log '([.[] | select(.method=="POST")] | length) == 1' "302 trigger request" || return 1
+    assert_log '([.[] | select(.method=="POST")] | length) == 1 and all(.[] | select(.method=="POST"); ([.form[] | select(.name=="CUSTOM_SSH_PUBLIC_KEY")] | length)==1 and any(.form[]; .name=="CUSTOM_SSH_PUBLIC_KEY" and .value=="caller-public-key-content") and all(.form[]; .value != "fixture-public-key-content"))' "302 caller-first trigger request" || return 1
+    assert_log "all(.[] | select(.method==\"POST\"); all(.form[]; .value != \"$missing_key_file\"))" "302 caller-first trigger path exclusion" || return 1
+    assert_output_absent caller-public-key-content "302 caller-first trigger caller SSH key output" || return 1
+    assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "302 caller-first trigger env SSH key content" || return 1
+    assert_output_absent "$missing_key_file" "302 caller-first trigger env SSH key path" || return 1
 
     start_fixture crumb-disabled || return 4
     run_capture "$SKILL_DIR/scripts/trigger_job.sh" --execute regression 'CUSTOM_TEST_OPTIONS=ok'
@@ -673,7 +872,7 @@ inspect_ssh_mode() {
         if [ "$rel" != "null" ]; then
             manifest_file="$(dirname "$manifest")/$rel"
             [ -f "$manifest_file" ] || { fail "manifest file missing: $manifest_key"; return 1; }
-            manifest_mode=$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$manifest_file") || return 1
+            manifest_mode=$(python -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$manifest_file") || return 1
             [ "$manifest_mode" = "0o600" ] || { fail "manifest file mode for $manifest_key was $manifest_mode"; return 1; }
             assert_file_absent "$manifest_file" dummy-token "manifest file $manifest_key" || return 1
         fi
@@ -725,6 +924,54 @@ inspect_ssh_mode() {
         fail "command SSH argument array was not preserved"
         return 1
     }
+
+    start_fixture console-ipv6 || return 4
+    run_capture "$SKILL_DIR/scripts/inspect_build.sh" regression 7
+    assert_status 0 "inspection with IPv6 host" || return 1
+    manifest=$(assert_private_path "IPv6 inspection manifest") || return 1
+    remote_path=$(jq -r '.files.remoteHosts' "$manifest")
+    assert_json_file "$(dirname "$manifest")/$remote_path" '.hosts == ["2600:1f18:671d:ea00:8589:9089:1065:aff9"]' "canonical IPv6 remote host" || return 1
+    run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" --resolve-only regression 7
+    assert_status 0 "resolve-only IPv6 SSH" || return 1
+    path=$(assert_private_path "IPv6 SSH target") || return 1
+    assert_json_file "$path" '.host=="2600:1f18:671d:ea00:8589:9089:1065:aff9" and .user=="jenkins-test"' "IPv6 SSH target" || return 1
+    : > "$FAKE_SSH_LOG"
+    run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" regression 7
+    assert_status 0 "interactive IPv6 SSH" || return 1
+    expected_ssh=$(printf '<%s>\n' -tt -i "$RESOLVED_IDENTITY_FILE" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -6 -l jenkins-test '2600:1f18:671d:ea00:8589:9089:1065:aff9')
+    [ "$(cat "$FAKE_SSH_LOG")" = "$expected_ssh" ] || {
+        fail "interactive IPv6 SSH arguments were not exact"
+        return 1
+    }
+
+    start_fixture console-ipv6-compressed || return 4
+    run_capture "$SKILL_DIR/scripts/inspect_build.sh" regression 7
+    assert_status 0 "inspection canonicalizes compressed IPv6" || return 1
+    manifest=$(assert_private_path "compressed IPv6 inspection manifest") || return 1
+    remote_path=$(jq -r '.files.remoteHosts' "$manifest")
+    assert_json_file "$(dirname "$manifest")/$remote_path" '.hosts == ["2001:db8::1"]' "compressed IPv6 remote host" || return 1
+
+    for invalid_ipv6_mode in console-invalid-ipv6 console-unbracketed-ipv6; do
+        start_fixture "$invalid_ipv6_mode" || return 4
+        run_capture "$SKILL_DIR/scripts/inspect_build.sh" regression 7
+        assert_status 0 "$invalid_ipv6_mode inspection" || return 1
+        manifest=$(assert_private_path "$invalid_ipv6_mode inspection manifest") || return 1
+        remote_path=$(jq -r '.files.remoteHosts' "$manifest")
+        assert_json_file "$(dirname "$manifest")/$remote_path" '.hosts == []' "$invalid_ipv6_mode exclusion" || return 1
+        run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" --resolve-only regression 7
+        assert_status 2 "$invalid_ipv6_mode SSH refusal" || return 1
+    done
+
+    start_fixture console-mixed-ip || return 4
+    run_capture "$SKILL_DIR/scripts/inspect_build.sh" regression 7
+    assert_status 0 "inspection with mixed IP hosts" || return 1
+    manifest=$(assert_private_path "mixed IP inspection manifest") || return 1
+    remote_path=$(jq -r '.files.remoteHosts' "$manifest")
+    assert_json_file "$(dirname "$manifest")/$remote_path" '.hosts == ["192.0.2.10", "2001:db8::1"]' "mixed IP remote hosts" || return 1
+    run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" --resolve-only regression 7
+    assert_status 2 "mixed IP multiple host refusal" || return 1
+
+    start_fixture reports-artifacts || return 4
     unset JENKINS_SSH_IDENTITY_FILE
     run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" --resolve-only regression 7
     assert_status 3 "missing SSH identity" || return 1
@@ -762,6 +1009,14 @@ inspect_ssh_mode() {
     count=$(jq -s '[.[] | select(.method=="GET" and (.path|endswith("/consoleText")))] | length' "$FIXTURE_LOG")
     [ "$count" -eq 3 ] || { fail "host wait expected 3 console requests, got $count"; return 1; }
     [ ! -s "$FAKE_SSH_LOG" ] || { fail "host wait invoked ssh"; return 1; }
+
+    start_fixture host-wait-ipv6-ready || return 4
+    : > "$FAKE_SLEEP_LOG"
+    run_capture "$SKILL_DIR/scripts/wait_for_job_host.sh" regression 7 60
+    assert_status 0 "wait for provisioned IPv6 host" || return 1
+    path=$(assert_private_path "IPv6 host wait result") || return 1
+    assert_json_file "$path" '.host=="2600:1f18:671d:ea00:8589:9089:1065:aff9" and .result=="READY"' "IPv6 host wait ready" || return 1
+    [ "$(cat "$FAKE_SLEEP_LOG")" = "$(printf '15\n15')" ] || { fail "IPv6 host wait did not use exact 15-second polling"; return 1; }
 
     start_fixture host-wait-multiple || return 4
     : > "$FAKE_SLEEP_LOG"
@@ -811,13 +1066,14 @@ skill_mode() {
         "Use when a Longhorn developer asks to list, trigger, monitor, inspect, diagnose, or access hosts" \
         "JENKINS_URL" "JENKINS_USER" "JENKINS_TOKEN" \
         "JENKINS_NOTIFY_SLACK_CHANNEL" "SEND_SLACK_NOTIFICATION=true" "NOTIFY_SLACK_CHANNEL" \
-        "JENKINS_SSH_IDENTITY_FILE" "JENKINS_SSH_USER" \
-        "trigger-and-forget" "RUN_V2_TEST=false" "CUSTOM_TEST_OPTIONS" \
+        "JENKINS_SSH_IDENTITY_FILE" "JENKINS_SSH_USER" "JENKINS_SSH_PUBLIC_KEY" \
+        "trigger-and-forget" "RUN_V2_TEST=false" "CUSTOM_TEST_OPTIONS" "CUSTOM_SSH_PUBLIC_KEY" \
         "at most the final 200 console lines" "20 console lines" \
         "300 characters" "[truncated; raw evidence remains in" "temporary-directory" \
         "StrictHostKeyChecking=no" "UserKnownHostsFile=/dev/null" "safely expands a leading" \
         "ticket/jenkins_<alias>-<build-number>-job/" "logs/console.txt" \
-        "wait_for_job_host.sh" "900 seconds" "every 15 seconds" "never invokes SSH"; do
+        "wait_for_job_host.sh" "900 seconds" "every 15 seconds" "never invokes SSH" \
+        "bracketed IPv6" "requires \`python\`" "ssh -6"; do
         case "$skill_text" in
             *"$phrase"*) ;;
             *) fail "SKILL.md missing required contract text: $phrase"; return 1;;
@@ -920,6 +1176,11 @@ main() {
         return 3
     }
     chmod 700 "$RUN_DIR" || return 3
+    SSH_PUBLIC_KEY_FILE="$RUN_DIR/fixture-ssh-public-key"
+    SSH_PUBLIC_KEY_CONTENT='fixture-public-key-content'
+    printf '%s\n' "$SSH_PUBLIC_KEY_CONTENT" > "$SSH_PUBLIC_KEY_FILE" || return 3
+    chmod 600 "$SSH_PUBLIC_KEY_FILE" || return 3
+    export JENKINS_SSH_PUBLIC_KEY="$SSH_PUBLIC_KEY_FILE"
     trap cleanup EXIT HUP INT TERM
     if [ "$mode" != live-readonly ]; then
         make_fake_tools || return 3

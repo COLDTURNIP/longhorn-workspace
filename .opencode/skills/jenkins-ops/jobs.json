@@ -28,6 +28,7 @@
       "reviewParameters": [
         "LONGHORN_TESTS_CUSTOM_IMAGE",
         "CUSTOM_TEST_OPTIONS",
+        "CUSTOM_SSH_PUBLIC_KEY",
         "LONGHORN_REPO_URI",
         "LONGHORN_REPO_BRANCH",
         "SEND_SLACK_NOTIFICATION",
@@ -48,6 +49,7 @@
       "reviewParameters": [
         "LONGHORN_TESTS_CUSTOM_IMAGE",
         "CUSTOM_TEST_OPTIONS",
+        "CUSTOM_SSH_PUBLIC_KEY",
         "LONGHORN_REPO_URI",
         "LONGHORN_REPO_BRANCH",
         "SEND_SLACK_NOTIFICATION",
