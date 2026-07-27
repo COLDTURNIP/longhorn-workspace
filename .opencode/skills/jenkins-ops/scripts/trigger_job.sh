@@ -24,6 +24,140 @@ JOB_ALIAS_ARG=$1
 shift
 case "$JOB_ALIAS_ARG" in ""|--*) usage; exit "$EXIT_ARG" ;; esac
 
+# Jenkins pipelines interpolate CUSTOM_TEST_OPTIONS inside a double-quoted
+# docker --env value, then the test runner evaluates the resulting option
+# string. Canonicalize raw caller input across both shell boundaries.
+normalize_custom_test_options() {
+  local input=$1
+  local output=""
+  local character previous_character
+  local index=0
+  local quote_open=false
+  local saw_raw_quote=false
+  local saw_backslash_quote=false
+
+  if ! printf '%s' "$input" | jq -Rse 'all(explode[]; . >= 32 and . != 127)' >/dev/null 2>&1; then
+    _jenkins_error 'CUSTOM_TEST_OPTIONS must not contain control characters'
+    return "$EXIT_ARG"
+  fi
+  case "$input" in
+    *'$'*|*'`'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'('*|*')'*|*"'"*)
+      _jenkins_error 'CUSTOM_TEST_OPTIONS contains unsupported shell syntax'
+      return "$EXIT_ARG"
+      ;;
+  esac
+
+  while [ "$index" -lt "${#input}" ]; do
+    character=${input:$index:1}
+    if [ "$character" = '"' ]; then
+      previous_character=""
+      if [ "$index" -gt 0 ]; then
+        previous_character=${input:$((index - 1)):1}
+      fi
+      if [ "$previous_character" = '\' ]; then
+        saw_backslash_quote=true
+      else
+        saw_raw_quote=true
+      fi
+    fi
+    index=$((index + 1))
+  done
+  if [ "$saw_backslash_quote" = true ] && [ "$saw_raw_quote" = false ]; then
+    _jenkins_error 'CUSTOM_TEST_OPTIONS must use raw double quotes, not pre-escaped quote delimiters'
+    return "$EXIT_ARG"
+  fi
+  index=0
+
+  while [ "$index" -lt "${#input}" ]; do
+    character=${input:$index:1}
+    case "$character" in
+      '\') output+='\\\\' ;;
+      '"')
+        output+='\"'
+        if [ "$quote_open" = true ]; then quote_open=false; else quote_open=true; fi
+        ;;
+      '*'|'?'|'['|']'|'{'|'}'|'~'|'#')
+        if [ "$quote_open" = false ]; then
+          _jenkins_error 'CUSTOM_TEST_OPTIONS contains unquoted shell expansion syntax'
+          return "$EXIT_ARG"
+        fi
+        output+="$character"
+        ;;
+      *) output+="$character" ;;
+    esac
+    index=$((index + 1))
+  done
+
+  if [ "$quote_open" = true ]; then
+    _jenkins_error 'CUSTOM_TEST_OPTIONS contains an unmatched double quote'
+    return "$EXIT_ARG"
+  fi
+  NORMALIZED_CUSTOM_TEST_OPTIONS=$output
+}
+
+# Live Jenkins defaults are already encoded for both shell boundaries. Validate
+# their canonical transport shape without applying raw-input normalization again.
+validate_custom_test_options_transport() {
+  local input=$1
+  local character
+  local index=0
+  local run_length
+  local quote_open=false
+
+  if ! printf '%s' "$input" | jq -Rse 'all(explode[]; . >= 32 and . != 127)' >/dev/null 2>&1; then
+    _jenkins_error 'CUSTOM_TEST_OPTIONS must not contain control characters'
+    return "$EXIT_ARG"
+  fi
+  case "$input" in
+    *'$'*|*'`'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'('*|*')'*|*"'"*)
+      _jenkins_error 'CUSTOM_TEST_OPTIONS contains unsupported shell syntax'
+      return "$EXIT_ARG"
+      ;;
+  esac
+
+  while [ "$index" -lt "${#input}" ]; do
+    character=${input:$index:1}
+    if [ "$character" = '\' ]; then
+      run_length=0
+      while [ "$index" -lt "${#input}" ] && [ "${input:$index:1}" = '\' ]; do
+        run_length=$((run_length + 1))
+        index=$((index + 1))
+      done
+      if [ "$index" -lt "${#input}" ] && [ "${input:$index:1}" = '"' ]; then
+        if [ $((run_length % 4)) -ne 1 ]; then
+          _jenkins_error 'CUSTOM_TEST_OPTIONS contains invalid quote transport escaping'
+          return "$EXIT_ARG"
+        fi
+        if [ "$quote_open" = true ]; then quote_open=false; else quote_open=true; fi
+        index=$((index + 1))
+      elif [ $((run_length % 4)) -ne 0 ]; then
+        _jenkins_error 'CUSTOM_TEST_OPTIONS contains invalid backslash transport escaping'
+        return "$EXIT_ARG"
+      fi
+      continue
+    fi
+    if [ "$character" = '"' ]; then
+      _jenkins_error 'CUSTOM_TEST_OPTIONS contains an unescaped transport quote'
+      return "$EXIT_ARG"
+    fi
+    case "$character" in
+      '*'|'?'|'['|']'|'{'|'}'|'~'|'#')
+        if [ "$quote_open" = false ]; then
+          _jenkins_error 'CUSTOM_TEST_OPTIONS contains unquoted shell expansion syntax'
+          return "$EXIT_ARG"
+        fi
+        ;;
+    esac
+    index=$((index + 1))
+  done
+
+  if [ "$quote_open" = true ]; then
+    _jenkins_error 'CUSTOM_TEST_OPTIONS contains an unmatched transport quote'
+    return "$EXIT_ARG"
+  fi
+}
+
+
 require_command jq
 resolve_job "$JOB_ALIAS_ARG"
 require_command curl
@@ -105,7 +239,12 @@ for argument in "$@"; do
         exit "$EXIT_ARG"
       fi
       ;;
-    StringParameterDefinition|TextParameterDefinition) ;;
+    StringParameterDefinition|TextParameterDefinition)
+      if [ "$name" = CUSTOM_TEST_OPTIONS ]; then
+        normalize_custom_test_options "$value" || exit $?
+        value=$NORMALIZED_CUSTOM_TEST_OPTIONS
+      fi
+      ;;
     PasswordParameterDefinition)
       _jenkins_error 'Password parameters cannot be triggered by this wrapper'
       exit "$EXIT_ARG"
@@ -187,6 +326,12 @@ if ! jq -S --argjson overrides "$(cat "$OVERRIDES_FILE")" --argjson warnings "$J
   exit "$EXIT_ARG"
 fi
 chmod 600 "$LAUNCH_PLAN"
+
+effective_test_options_source=$(jq -r '.parameters[] | select(.name == "CUSTOM_TEST_OPTIONS") | .source' "$LAUNCH_PLAN" 2>/dev/null)
+if [ -n "$effective_test_options_source" ]; then
+  effective_test_options=$(jq -r '.parameters[] | select(.name == "CUSTOM_TEST_OPTIONS") | .value' "$LAUNCH_PLAN")
+  validate_custom_test_options_transport "$effective_test_options" || exit $?
+fi
 
 if [ "$JOB_ALIAS_ARG" = e2e ]; then
   effective_v2=$(jq -r '.parameters[] | select(.name == "RUN_V2_TEST") | .value | if type == "boolean" then tostring else "invalid" end' "$LAUNCH_PLAN")

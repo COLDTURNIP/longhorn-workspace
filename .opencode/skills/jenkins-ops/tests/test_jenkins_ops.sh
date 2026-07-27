@@ -441,6 +441,56 @@ trigger_mode() {
     assert_json_file "$path" "all(.parameters[]; .name != \"CUSTOM_SSH_PUBLIC_KEY\" or .value != \"$SSH_PUBLIC_KEY_FILE\")" "regression managed SSH key path exclusion" || return 1
     assert_output_absent "$SSH_PUBLIC_KEY_CONTENT" "regression dry-run SSH key content" || return 1
     assert_output_absent "$SSH_PUBLIC_KEY_FILE" "regression dry-run SSH key path" || return 1
+
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e 'CUSTOM_TEST_OPTIONS=-t "Backup Listing With More Than 1000 Backups" -v PATH:C:\data'
+    assert_status 0 "raw quoted CUSTOM_TEST_OPTIONS dry-run" || return 1
+    path=$(assert_private_path "raw quoted CUSTOM_TEST_OPTIONS launch plan") || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_TEST_OPTIONS" and .value == "-t \\\"Backup Listing With More Than 1000 Backups\\\" -v PATH:C:\\\\\\\\data" and .source == "override")' "pipeline-escaped CUSTOM_TEST_OPTIONS" || return 1
+
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e 'CUSTOM_TEST_OPTIONS=-v PATH:"C:\"'
+    assert_status 0 "backslash before quote CUSTOM_TEST_OPTIONS dry-run" || return 1
+    path=$(assert_private_path "backslash before quote CUSTOM_TEST_OPTIONS launch plan") || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_TEST_OPTIONS" and .source == "override" and (.value | startswith("-v PATH:\\\"C:")) and ((.value | explode)[-6:] == [92,92,92,92,92,34]))' "literal backslash before quote transport escaping" || return 1
+
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e 'CUSTOM_TEST_OPTIONS=-i "negative*"'
+    assert_status 0 "quoted pattern CUSTOM_TEST_OPTIONS dry-run" || return 1
+    path=$(assert_private_path "quoted pattern CUSTOM_TEST_OPTIONS launch plan") || return 1
+    assert_json_file "$path" 'any(.parameters[]; .name == "CUSTOM_TEST_OPTIONS" and .value == "-i \\\"negative*\\\"")' "quoted pattern CUSTOM_TEST_OPTIONS escaping" || return 1
+
+
+    for unsafe_options in \
+        'CUSTOM_TEST_OPTIONS=-i negative; touch injected' \
+        'CUSTOM_TEST_OPTIONS=-i $(touch injected)' \
+        'CUSTOM_TEST_OPTIONS=-i `touch injected`' \
+        'CUSTOM_TEST_OPTIONS=-t "unmatched' \
+        'CUSTOM_TEST_OPTIONS=-i negative*' \
+        'CUSTOM_TEST_OPTIONS=-i negative?' \
+        'CUSTOM_TEST_OPTIONS=-i [negative]' \
+        'CUSTOM_TEST_OPTIONS=-i {negative,positive}' \
+        'CUSTOM_TEST_OPTIONS=-v PATH:~' \
+        'CUSTOM_TEST_OPTIONS=-i negative#comment' \
+        'CUSTOM_TEST_OPTIONS=-t \"foo bar\" --exclude x' \
+        'CUSTOM_TEST_OPTIONS=-t "foo\"bar"'; do
+        start_fixture normal || return 4
+        run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e "$unsafe_options"
+        assert_status 2 "unsafe CUSTOM_TEST_OPTIONS refusal" || return 1
+        count=$(jq -s '[.[] | select(.method=="POST")] | length' "$FIXTURE_LOG")
+        [ "$count" -eq 0 ] || { fail "unsafe CUSTOM_TEST_OPTIONS issued POST"; return 1; }
+    done
+
+    start_fixture normal || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e $'CUSTOM_TEST_OPTIONS=-i negative\n--exclude cluster'
+    assert_status 2 "control character CUSTOM_TEST_OPTIONS refusal" || return 1
+    count=$(jq -s '[.[] | select(.method=="POST")] | length' "$FIXTURE_LOG")
+    [ "$count" -eq 0 ] || { fail "control character CUSTOM_TEST_OPTIONS issued POST"; return 1; }
+
+    start_fixture post-201 || return 4
+    run_capture "$SKILL_DIR/scripts/trigger_job.sh" --execute regression 'CUSTOM_TEST_OPTIONS=-t "Backup Listing With More Than 1000 Backups" -v PATH:C:\data'
+    assert_status 0 "pipeline-escaped CUSTOM_TEST_OPTIONS execute" || return 1
+    assert_log '([.[] | select(.method=="POST")] | length) == 1 and all(.[] | select(.method=="POST"); any(.form[]; .name=="CUSTOM_TEST_OPTIONS" and .value=="-t \\\"Backup Listing With More Than 1000 Backups\\\" -v PATH:C:\\\\\\\\data"))' "pipeline-escaped CUSTOM_TEST_OPTIONS POST" || return 1
     start_fixture normal || return 4
     run_capture "$SKILL_DIR/scripts/trigger_job.sh" e2e
     assert_status 0 "e2e dry-run" || return 1
