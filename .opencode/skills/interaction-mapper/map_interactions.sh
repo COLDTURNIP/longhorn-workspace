@@ -63,7 +63,7 @@ TMP_CRD=$(mktemp)
       KIND=${STRUCT_NAME%Controller}
       if echo "$CRD_WHITELIST" | grep -qxw "$KIND"; then
         if [ "$FIRST" = false ]; then echo ","; fi
-        echo "  \"$KIND\": \"@repo/longhorn-manager/$file\""
+        echo "  \"$KIND\": \"@$file\""
         FIRST=false
       fi
     fi

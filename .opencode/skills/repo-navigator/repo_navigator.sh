@@ -15,7 +15,28 @@ Flags: --execute/--dry-run, --json-log, --no-color, --force (unused)
 USAGE
 }
 
-defensive_parse_args "$@"
+NAV_POSITIONAL_ARGS=()
+DEFENSIVE_ARGS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --crd|--rpc)
+      if [ "$#" -lt 2 ]; then
+        error "Missing value for $1"
+        defensive_show_help
+        exit "$EXIT_ARG"
+      fi
+      NAV_POSITIONAL_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    *)
+      DEFENSIVE_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+defensive_parse_args "${DEFENSIVE_ARGS[@]}"
+DEFENSIVE_POSITIONAL_ARGS=("${NAV_POSITIONAL_ARGS[@]}" "${DEFENSIVE_POSITIONAL_ARGS[@]}")
 
 if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -lt 2 ]; then
   error "Missing required arguments"
