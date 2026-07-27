@@ -40,6 +40,21 @@ find . -name '*.sh' -not -path './repo/*/vendor/*' -print0 | xargs -0 shellcheck
 - Keep this checklist high-level: do not duplicate the skill's implementation details here (see `.opencode/skills/check-test-diff/SKILL.md`).
 - If there are many unrelated changes in test files, stop and reduce scope before continuing.
 
+## Go Import Convention Gate
+- Before declaring any Go implementation finished and verified, check every added or modified Go source file with `repo/longhorn-manager/.github/scripts/check_go_imports.py`.
+- This gate applies to every Go repository, not only `longhorn-manager`. Exclude vendor sources and do not check unrelated Go files.
+- Run the checker from each affected repository root so it reads that repository's `go.mod` and receives repository-relative paths:
+  ```sh
+  (
+    cd "repo/<go-repo>"
+    {
+      git diff --diff-filter=ACM --name-only HEAD -- '*.go' ':!vendor/**'
+      git ls-files --others --exclude-standard -- '*.go' ':!vendor/**'
+    } | sort -u | python3 ../longhorn-manager/.github/scripts/check_go_imports.py
+  )
+  ```
+- Repeat the command for every affected Go repository. Any checker failure blocks completion.
+
 ## Build/Test Pointers (per repo type)
 - Type A/B native repos: run `make -C repo/<repo-name> build validate test`; current native repos usually invoke Docker Buildx/Dockerfile stages. Do not treat host `go test`/`go build` as final verification.
 - Legacy Dapper repos: if the repo Makefile still uses `.dapper` and `Dockerfile.dapper`, follow that repo's Makefile.
