@@ -93,6 +93,8 @@ SCENARIOS = {
     "queue-timeout-after",
     "queue-pending-multi",
     "queue-build-transition",
+    "queue-expired-recover",
+    "queue-expired-not-found",
     "build-failure",
     "reports-artifacts",
     "reports-missing",
@@ -552,6 +554,25 @@ class Handler(BaseHTTPRequestHandler):
             if count == 1:
                 self._json({}, status=500, split=split)
                 return True
+        if split.query.startswith("tree=builds["):
+            builds = []
+            if alias == "regression" and scenario != "queue-expired-not-found":
+                builds = [
+                    {
+                        "building": False,
+                        "number": 7,
+                        "queueId": 101,
+                        "result": "SUCCESS",
+                    },
+                    {
+                        "building": False,
+                        "number": 6,
+                        "queueId": 100,
+                        "result": "FAILURE",
+                    },
+                ]
+            self._json({"builds": builds}, split=split)
+            return True
         buildable = scenario != "buildable-false"
         self._json(
             _job_metadata(alias, scenario, buildable=buildable),
@@ -572,6 +593,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json({}, status=500, split=split)
             return True
         if scenario in {"http-404", "notfound404"}:
+            self._json({}, status=404, split=split)
+            return True
+        if scenario in {"queue-expired-recover", "queue-expired-not-found"}:
             self._json({}, status=404, split=split)
             return True
         if scenario == "wait-hang":
@@ -683,6 +707,7 @@ class Handler(BaseHTTPRequestHandler):
                     "actions": actions,
                     "artifacts": artifacts,
                     "building": building,
+                    "queueId": 101,
                     "number": number,
                     "result": result,
                 },

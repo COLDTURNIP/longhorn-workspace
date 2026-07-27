@@ -62,7 +62,7 @@ JENKINS_REQUEST_FORM=()
 JENKINS_REQUEST_HEADERS=()
 JENKINS_REQUEST_ARGS=()
 REQUEST_RC=0
-jenkins_request GET "${JOB_URL}${BUILD_NUMBER_ARG}/api/json?tree=number,building,result" "$RESPONSE_FILE" || REQUEST_RC=$?
+jenkins_request GET "${JOB_URL}${BUILD_NUMBER_ARG}/api/json?tree=number,queueId,building,result" "$RESPONSE_FILE" || REQUEST_RC=$?
 case "$REQUEST_RC" in 2|3) exit "$REQUEST_RC" ;; esac
 if [ "$REQUEST_RC" -ne 0 ]; then
   # A deadline is not used by this wrapper, but do not leak the internal
@@ -90,12 +90,14 @@ if ! jq -e -cS --arg job "$JOB_ALIAS_ARG" --arg build "$BUILD_NUMBER_ARG" '
      (.number | type) != "number" or
      (.number | floor) != .number or
      (.number <= 0) or
+     (((.queueId? // null) != null) and
+       (((.queueId | type) != "number") or (.queueId | floor) != .queueId or ((.queueId <= 0) and (.queueId != -1)))) or
      (.number != ($build | tonumber)) or
      (.building | type) != "boolean" or
      ((.result | type) != "string" and (.result | type) != "null") then
     error("malformed build status")
   else
-    {job: $job, build: .number, building: .building, result: .result}
+    {job: $job, build: .number, queueId: (.queueId? // null), building: .building, result: .result}
   end
 ' "$RESPONSE_FILE" 2>/dev/null; then
   _jenkins_error "Jenkins build response is malformed"

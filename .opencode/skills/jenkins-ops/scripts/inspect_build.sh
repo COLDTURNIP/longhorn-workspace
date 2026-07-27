@@ -68,7 +68,7 @@ JENKINS_REQUEST_FORM=()
 JENKINS_REQUEST_HEADERS=()
 JENKINS_REQUEST_ARGS=()
 REQUEST_RC=0
-jenkins_request GET "${JOB_URL}${BUILD_NUMBER_ARG}/api/json?tree=number,building,result,artifacts[fileName,relativePath],actions[_class,urlName,parameters[name,value]]" "$RAW_BUILD_FILE" || REQUEST_RC=$?
+jenkins_request GET "${JOB_URL}${BUILD_NUMBER_ARG}/api/json?tree=number,queueId,building,result,artifacts[fileName,relativePath],actions[_class,urlName,parameters[name,value]]" "$RAW_BUILD_FILE" || REQUEST_RC=$?
 case "$REQUEST_RC" in 2|3) exit "$REQUEST_RC" ;; esac
 if [ "$REQUEST_RC" -ne 0 ]; then
   if [ "$REQUEST_RC" -eq "$JENKINS_DEADLINE_SIGNAL" ]; then
@@ -115,6 +115,7 @@ if ! jq -S -e --arg job "$JOB_ALIAS_ARG" --arg build "$BUILD_NUMBER_ARG" '
   . as $root
   | if ($root | type) != "object" then fail
     elif (($root | has("number")) | not) or (($root.number | type) != "number") or (($root.number | floor) != $root.number) or ($root.number <= 0) or (($root.number | tostring) != $build) then fail
+    elif (($root.queueId? // null) != null) and ((($root.queueId | type) != "number") or (($root.queueId | floor) != $root.queueId) or (($root.queueId <= 0) and ($root.queueId != -1))) then fail
     elif (($root | has("building")) | not) or (($root.building | type) != "boolean") then fail
     elif (($root | has("result")) | not) or (($root.result | type) != "string" and ($root.result | type) != "null") then fail
     elif (($root | has("actions")) | not) or (($root.actions | type) != "array") then fail
@@ -131,7 +132,7 @@ if ! jq -S -e --arg job "$JOB_ALIAS_ARG" --arg build "$BUILD_NUMBER_ARG" '
         else
           ($raw_parameters | map({name:.name, value:(if (.name | sensitive) then "[REDACTED]" else .value end)} ) | sort_by(.name)) as $parameters
           | ($root.artifacts | map(if malformed_artifact then fail else {fileName:.fileName, relativePath:.relativePath} end) | sort_by(.relativePath)) as $artifacts
-          | {build:{job:$job, build:($root.number), building:$root.building, result:$root.result, parameters:$parameters}, artifacts:$artifacts, robot:(any($root.actions[]; (type == "object") and (.urlName? == "robot")))}
+          | {build:{job:$job, build:($root.number), queueId:($root.queueId? // null), building:$root.building, result:$root.result, parameters:$parameters}, artifacts:$artifacts, robot:(any($root.actions[]; (type == "object") and (.urlName? == "robot")))}
         end
     end
 ' "$RAW_BUILD_FILE" > "$NORMALIZED_FILE" 2>/dev/null; then

@@ -306,7 +306,7 @@ setup_run() {
 
 catalog_scripts_present() {
     local name
-    for name in list_jobs.sh get_job_parameters.sh trigger_job.sh get_build_status.sh wait_for_build.sh wait_for_job_host.sh inspect_build.sh get_artifact.sh ssh_job_host.sh; do
+    for name in list_jobs.sh list_builds.sh resolve_build.sh get_job_parameters.sh trigger_job.sh get_build_status.sh wait_for_build.sh wait_for_job_host.sh inspect_build.sh get_artifact.sh ssh_job_host.sh; do
         require_script "$name" || return 1
     done
     return 0
@@ -827,6 +827,8 @@ monitor_mode() {
     local count
     require_script get_build_status.sh || return $?
     require_script wait_for_build.sh || return $?
+    require_script list_builds.sh || return $?
+    require_script resolve_build.sh || return $?
     start_fixture normal || return 4
     clear_log
     run_capture "$SKILL_DIR/scripts/get_build_status.sh" unknown 7
@@ -835,17 +837,30 @@ monitor_mode() {
     start_fixture normal || return 4
     run_capture "$SKILL_DIR/scripts/get_build_status.sh" regression 7
     assert_status 0 "build status" || return 1
-    assert_json_stdout '(. | keys)==["build","building","job","result"] and .job=="regression" and .build==7 and (.building|type)=="boolean" and (.result==null or (.result|type)=="string")' "build status schema" || return 1
+    assert_json_stdout '(. | keys)==["build","building","job","queueId","result"] and .job=="regression" and .build==7 and .queueId==101 and (.building|type)=="boolean" and (.result==null or (.result|type)=="string")' "build status schema" || return 1
     run_capture "$SKILL_DIR/scripts/get_build_status.sh" regression 0
     assert_status 2 "invalid build number" || return 1
     run_capture "$SKILL_DIR/scripts/get_build_status.sh" regression 01
     assert_status 2 "noncanonical build number" || return 1
+
+    run_capture "$SKILL_DIR/scripts/list_builds.sh" regression 2
+    assert_status 0 "bounded recent builds" || return 1
+    assert_json_stdout '(. | keys)==["builds","job"] and .job=="regression" and [.builds[].build]==[7,6] and [.builds[].queueId]==[101,100]' "recent builds schema" || return 1
+    assert_log 'any(.[]; .method=="GET" and (.query|contains("tree=builds[number,queueId,building,result]{0,2}")))' "bounded recent builds request" || return 1
+    run_capture "$SKILL_DIR/scripts/resolve_build.sh" regression 101 2
+    assert_status 0 "resolve build by queue id" || return 1
+    assert_json_stdout '(. | keys)==["build","building","job","queueId","result"] and .job=="regression" and .queueId==101 and .build==7 and .result=="SUCCESS"' "resolved build schema" || return 1
+    assert_log 'any(.[]; .method=="GET" and (.path|endswith("/7/api/json")))' "resolved build identity request" || return 1
+    run_capture "$SKILL_DIR/scripts/resolve_build.sh" regression 999 2
+    assert_status 5 "missing queue correlation" || return 1
+    assert_json_stdout '.job=="regression" and .queueId==999 and .build==null and .result=="NOT_FOUND"' "missing queue correlation result" || return 1
 
     start_fixture queue-build-transition || return 4
     : > "$FAKE_SLEEP_LOG"
     run_capture "$SKILL_DIR/scripts/wait_for_build.sh" 101 20
     assert_status 0 "queue to build" || return 1
     assert_json_stdout '(.job=="regression" and .build==7 and .result=="SUCCESS")' "wait success" || return 1
+    assert_json_stdout '.queueId==101' "wait queue id" || return 1
     assert_log 'any(.[]; .method=="GET" and (.path|contains("/queue/item/101/"))) and any(.[]; .method=="GET" and (.path|endswith("/7/api/json")))' "queue/build request" || return 1
     assert_log 'all(.[]; .method=="GET")' "monitor GET-only" || return 1
     assert_log '.[0].method=="GET" and (.[0].path|contains("/queue/item/101/"))' "immediate queue request" || return 1
@@ -858,6 +873,18 @@ monitor_mode() {
         fail "queue sleep sequence was not 5, 10, 30"
         return 1
     }
+
+    start_fixture queue-expired-recover || return 4
+    run_capture "$SKILL_DIR/scripts/wait_for_build.sh" 101 20
+    assert_status 0 "expired queue recovery" || return 1
+    assert_json_stdout '.job=="regression" and .queueId==101 and .build==7 and .result=="SUCCESS"' "expired queue recovery result" || return 1
+    assert_log 'any(.[]; .method=="GET" and (.path|contains("/queue/item/101/"))) and any(.[]; .method=="GET" and (.query|contains("tree=builds[number,queueId,building,result]{0,100}"))) and any(.[]; .method=="GET" and (.path|endswith("/7/api/json")))' "expired queue recovery requests" || return 1
+    assert_log '([.[] | select(.method=="GET" and (.path|contains("/job/")) and (.path|test("/[0-9]+/api/json$"))) | .path] | length)==1 and ([.[] | select(.method=="GET" and (.path|contains("/job/")) and (.path|test("/[0-9]+/api/json$"))) | .path][0] | endswith("/7/api/json"))' "expired recovery never probes build numbers" || return 1
+    start_fixture queue-expired-not-found || return 4
+    run_capture "$SKILL_DIR/scripts/wait_for_build.sh" 101 20
+    assert_status 5 "expired queue without correlation" || return 1
+    assert_json_stdout '.job==null and .queueId==101 and .build==null and .result=="NOT_FOUND"' "expired queue not found result" || return 1
+    assert_log 'all(.[]; (.path|test("/job/.*/[0-9]+/api/json$")) | not)' "missing correlation never probes build numbers" || return 1
 
 
     start_fixture queue-cancel-before || return 4

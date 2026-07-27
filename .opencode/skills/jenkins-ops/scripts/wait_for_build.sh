@@ -78,15 +78,16 @@ RESOLVED_ALIAS=""
 RESOLVED_JOB_URL=""
 RESOLVED_BUILD=""
 QUEUE_PENDING_COUNT=0
+QUEUE_NOT_FOUND_SIGNAL=74
 
 emit_wait_result() {
   local alias=${1:-} build=${2:-} result=${3:-}
   if [ -n "$alias" ]; then
-    jq -cn -S --arg job "$alias" --argjson build "$build" --arg result "$result" \
-      '{build:$build,job:$job,result:$result}'
+    jq -cn -S --arg job "$alias" --argjson queueId "$QUEUE_ID" --argjson build "$build" --arg result "$result" \
+      '{build:$build,job:$job,queueId:$queueId,result:$result}'
   else
-    jq -cn -S --arg result "$result" \
-      '{build:null,job:null,result:$result}'
+    jq -cn -S --argjson queueId "$QUEUE_ID" --arg result "$result" \
+      '{build:null,job:null,queueId:$queueId,result:$result}'
   fi
 }
 
@@ -98,7 +99,7 @@ emit_timeout() {
 # Return 75 when the absolute deadline has elapsed, preserve local validation
 # errors (2/3), and map all Jenkins transport/HTTP failures to exit 4.
 request_get() {
-  local url=$1 outfile=$2 request_rc
+  local url=$1 outfile=$2 allow_not_found=${3:-false} request_rc
   if [ "$SECONDS" -ge "$DEADLINE" ]; then
     return "$JENKINS_DEADLINE_SIGNAL"
   fi
@@ -115,6 +116,9 @@ request_get() {
     return "$JENKINS_DEADLINE_SIGNAL"
   fi
   if [ "$request_rc" -ne 0 ]; then
+    if [ "$allow_not_found" = true ] && [ "${JENKINS_HTTP_STATUS:-}" = 404 ]; then
+      return "$QUEUE_NOT_FOUND_SIGNAL"
+    fi
     case "$request_rc" in
       2|3) return "$request_rc" ;;
       *)
@@ -122,6 +126,9 @@ request_get() {
         return "$EXIT_JENKINS"
         ;;
     esac
+  fi
+  if [ "$allow_not_found" = true ] && [ "${JENKINS_HTTP_STATUS:-}" = 404 ]; then
+    return "$QUEUE_NOT_FOUND_SIGNAL"
   fi
   if [ "${JENKINS_HTTP_STATUS:-}" != 200 ]; then
     map_http_error "${JENKINS_HTTP_STATUS:-}" GET || true
@@ -214,17 +221,102 @@ resolve_executable() {
   return "$EXIT_JENKINS"
 }
 
+# Recover an expired queue item by correlating its immutable queue id against
+# bounded recent-build metadata from each approved job. Exactly one match is
+# required; build-number probing is never used.
+recover_expired_queue() {
+  local candidate candidate_file candidate_count candidate_build total_matches request_rc
+  total_matches=0
+  for candidate in regression e2e benchmark; do
+    candidate_file="$PRIVATE_DIR/recent-${candidate}.json"
+    build_job_url "$candidate" || return "$EXIT_JENKINS"
+    request_rc=0
+    if request_get "${JOB_URL}api/json?tree=builds[number,queueId,building,result]{0,100}" "$candidate_file"; then
+      request_rc=0
+    else
+      request_rc=$?
+    fi
+    if [ "$request_rc" -ne 0 ]; then
+      return "$request_rc"
+    fi
+    if ! jq -e '
+      def valid_integer: (type == "number") and (. >= 1) and (. == floor);
+      def valid_queue_id: (type == "number") and (. == floor) and ((. == -1) or (. >= 1));
+      def valid_result: (type == "string") or (type == "null");
+      type == "object"
+      and (has("builds") and (.builds | type) == "array")
+      and all(.builds[];
+        type == "object"
+        and (has("number") and (.number | valid_integer))
+        and (has("building") and (.building | type) == "boolean")
+        and (has("result") and (.result | valid_result))
+        and ((.queueId? // null) as $queue | (($queue == null) or ($queue | valid_queue_id)))
+      )
+    ' "$candidate_file" >/dev/null 2>&1; then
+      _jenkins_error 'Jenkins recent builds response is malformed'
+      return "$EXIT_JENKINS"
+    fi
+    candidate_count=$(jq -r --arg queue "$QUEUE_ID" \
+      '[.builds[] | select((.queueId? // null) != null and (.queueId | tostring) == $queue)] | length' \
+      "$candidate_file" 2>/dev/null) || {
+      _jenkins_error 'Jenkins recent builds response is malformed'
+      return "$EXIT_JENKINS"
+    }
+    case "$candidate_count" in
+      0) ;;
+      1)
+        candidate_build=$(jq -r --arg queue "$QUEUE_ID" \
+          '.builds[] | select((.queueId? // null) != null and (.queueId | tostring) == $queue) | .number' \
+          "$candidate_file" 2>/dev/null) || {
+          _jenkins_error 'Jenkins recent builds response is malformed'
+          return "$EXIT_JENKINS"
+        }
+        RESOLVED_ALIAS=$candidate
+        RESOLVED_BUILD=$candidate_build
+        RESOLVED_JOB_URL=$JOB_URL
+        total_matches=$((total_matches + 1))
+        ;;
+      *)
+        _jenkins_error 'Jenkins queue id matched multiple recent builds'
+        return "$EXIT_JENKINS"
+        ;;
+    esac
+  done
+  if [ "$total_matches" -eq 1 ]; then
+    return 0
+  fi
+  if [ "$total_matches" -gt 1 ]; then
+    _jenkins_error 'Jenkins queue id matched multiple approved builds'
+  else
+    return "$EXIT_TIMEOUT"
+  fi
+  return "$EXIT_JENKINS"
+}
+
 # Queue polling starts with an immediate request. Pending responses use the
 # exact 5/10/30 cadence; the sequence is not restarted after later responses.
 while :; do
   request_rc=0
-  if request_get "$QUEUE_URL" "$QUEUE_FILE"; then
+  if request_get "$QUEUE_URL" "$QUEUE_FILE" true; then
     request_rc=0
   else
     request_rc=$?
   fi
   case "$request_rc" in
     "$JENKINS_DEADLINE_SIGNAL") emit_timeout ;;
+    "$QUEUE_NOT_FOUND_SIGNAL")
+      recovery_rc=0
+      recover_expired_queue || recovery_rc=$?
+      case "$recovery_rc" in
+        0) break ;;
+        "$JENKINS_DEADLINE_SIGNAL") emit_timeout ;;
+        "$EXIT_TIMEOUT")
+          emit_wait_result '' '' NOT_FOUND
+          exit "$EXIT_TIMEOUT"
+          ;;
+        *) exit "$recovery_rc" ;;
+      esac
+      ;;
     0) ;;
     *) exit "$request_rc" ;;
   esac
@@ -287,7 +379,7 @@ done
 # The first build GET follows queue resolution immediately, with no cadence
 # sleep. Every response that is not a completed build is followed by 30s.
 while :; do
-  BUILD_URL="${RESOLVED_JOB_URL}${RESOLVED_BUILD}/api/json"
+  BUILD_URL="${RESOLVED_JOB_URL}${RESOLVED_BUILD}/api/json?tree=number,queueId,building,result"
   request_rc=0
   if request_get "$BUILD_URL" "$BUILD_FILE"; then
     request_rc=0
@@ -304,6 +396,8 @@ while :; do
     type == "object"
     and (has("number") and ((.number | type) == "number") and (.number >= 1)
          and (.number == (.number | floor)))
+    and (has("queueId") and ((.queueId | type) == "number") and (.queueId >= 1)
+         and (.queueId == (.queueId | floor)))
     and (has("building") and (.building | type == "boolean"))
     and (has("result") and ((.result == null) or (.result | type == "string")))
   ' "$BUILD_FILE" >/dev/null 2>&1; then
@@ -322,6 +416,14 @@ while :; do
   esac
   if [ "$response_number" != "$RESOLVED_BUILD" ]; then
     _jenkins_error 'Jenkins build response is malformed'
+    exit "$EXIT_JENKINS"
+  fi
+  response_queue_id=$(jq -r '.queueId' "$BUILD_FILE" 2>/dev/null) || {
+    _jenkins_error 'Jenkins build response is malformed'
+    exit "$EXIT_JENKINS"
+  }
+  if [ "$response_queue_id" != "$QUEUE_ID" ]; then
+    _jenkins_error 'Jenkins build response queue id does not match'
     exit "$EXIT_JENKINS"
   fi
 
