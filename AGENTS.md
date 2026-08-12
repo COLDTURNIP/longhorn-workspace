@@ -14,6 +14,7 @@ Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and ve
 - Issue/ticket/support-bundle work (`ticket/` paths, failure analysis) -> read `ticket/AGENTS.md` first; it defines evidence collection and folder layout.
 - Always reference files using workspace-relative paths (e.g., `repo/longhorn-manager/controller/...`), never absolute paths.
 - Orchestrator, planner, and plan reviewer must read `AGENTS.d/plan-and-delegation.md` before acting on any plan or delegation.
+- Go source changes under `repo/*` -> read `skill://go-import-check` and run its gate before completion.
 
 ## Workspace Scope
 
