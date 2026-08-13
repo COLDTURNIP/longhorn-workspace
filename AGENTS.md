@@ -14,7 +14,7 @@
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
 - The user creates and merges pull requests. Agents must not create or merge them.
-- Local commits may include edits to `AGENTS.md` and `AGENTS.d/*` policy files. Never push those policy edits.
+- Local commits may include edits to the workspace-root `AGENTS.md`, repo-level or nested `AGENTS.md` files, and `AGENTS.d/*` policy files. Never push any such policy change.
 
 ## Conditional skills
 
