@@ -1,35 +1,27 @@
 # Plan and Delegation Guidance
 
 ## Scope and Roles
-- This document defines the shared expectations for planning and delegation across the workspace.
-- The orchestrator, planner, and plan reviewer must read and follow this document before acting on any plan, delegation prompt, or verification request.
-- Keep communications grounded in scope, cite anchors, and avoid assumptions beyond the stated task boundaries.
+- The orchestrator, planner, and plan reviewer must read this document before acting on a plan or delegation prompt.
 
-## Atomic Delegation
-- Each delegation is exactly one file change or one verification command.
-- Do not bundle code edit plus test execution in one delegation prompt.
-- State the exact expected diff or command outcome.
+## Delegation Slices
+- Delegate a cohesive outcome, including its implementation and verification when both are required.
+- A slice must be executable and verifiable by one worker without waiting for another worker.
+- Split work by independently verifiable behavior or ownership boundary, not by individual file edits or commands.
+- Every delegation prompt must explicitly allowlist the paths the worker may modify and the commands the worker may run.
+- The allowlists must include everything needed to complete the slice and exclude unrelated paths and commands.
 
 ## Plan Step Contract
-- Every plan step must include these fields:
+- Every plan step must contain exactly these five labeled fields:
   - `Action`
   - `Target`
   - `Verify Command`
   - `Evidence Path`
   - `Done Criteria`
-- Missing any field is a plan rejection.
-- `Verify Command` must declare:
-  - interpreter (e.g., bash, python, go)
-  - entrypoint (script, binary, or command)
-  - environment assumption if not default
-  - single-line or heredoc form, copy-paste ready
-  - expected evidence path and success/fail criteria
-
-## Plan Executability Checklist
-- Command is single-line, copy-paste ready, or valid heredoc.
-- Interpreter and entrypoint are explicit (e.g., bash, python, go, etc.).
-- Environment assumption is stated if non-default.
-- Evidence path and expected output are clear.
-- Reviewer must check runtime feasibility, not just syntax.
+- `Action` states the outcome the step must produce.
+- `Target` is the explicit allowlist of paths the step may modify.
+- `Verify Command` is a copy-paste-ready single-line command or valid heredoc. It names the interpreter and entrypoint and states any non-default environment assumptions.
+- `Evidence Path` names the changed target, generated artifact, log, or `stdout/stderr` that records the result. A separate evidence file is required only when the verification command writes one.
+- `Done Criteria` states the observable target state and verification result that constitute success.
+- Reject a step when a field is missing, the command cannot run in the stated environment, verification writes outside `Target`, or the evidence cannot decide `Done Criteria`.
 
 Notes: Do not edit `.sisyphus/plans/*` or other plan files unless you have explicit authorization to modify them.
