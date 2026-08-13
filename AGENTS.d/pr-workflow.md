@@ -1,79 +1,45 @@
 # PR Workflow (Detailed)
 
-## Version Control: jj-first
+## Authoritative Guidance
 
-If `.jj/` is present in the workspace root, prefer jj commands. The git commands in
-this file are the fallback for git-only environments. See the `jj-vcs` skill for a
-full jj command reference including the PR workflow equivalents.
+- If `.jj/` exists at the workspace root, use `skill://jj-vcs` for VCS
+  commands and jj/Git equivalents. Git commands are fallback guidance for
+  Git-only repositories.
+- Use `skill://commit-message` for issue verification, message format, and
+  DCO handling. Repository-specific guidance decides whether signoff is
+  required.
 
-| Step | git (fallback) | jj (preferred) |
-|------|---------------|----------------|
-| Check clean | `git status --porcelain` | `jj diff --summary` (empty = clean) |
-| Fetch upstream | `git fetch upstream` | `jj git fetch` |
-| New branch | `git switch -c <id> upstream/<branch>` | `jj new <remote>/<branch>` then `jj bookmark create <id> -r @` |
-| Rebase | `git rebase upstream/<branch>` | `jj rebase -d <remote>/<branch>` |
-| Squash | `git rebase -i upstream/<branch>` | `jj squash` |
-| Signoff | `git commit -s -m "..."` | `jj describe -m "...\n\nSigned-off-by: Name <email>"` |
-| Push | `git push -u origin HEAD` | `jj git push --bookmark <name>` |
-| Force push | `git push --force-with-lease origin HEAD` | `jj git push --force-bookmark <name>` |
+## Longhorn PR Guardrails
 
-Note: avoid `jj workspace add` inside `repo/*` subrepos by default. The
-workspace workflow is branch/bookmark oriented, and some subrepos still have
-path-sensitive container build flows. Use `jj new` + `jj bookmark` instead.
+1. Base the feature branch or bookmark on the upstream default branch. Fetch
+   upstream before rebasing, and fail if its default branch cannot be
+   identified.
+2. Rebase onto the upstream default branch before the first push and after an
+   upstream update. Resolve conflicts upstream-first unless the change
+   intentionally overrides upstream behavior.
+3. Use normal working branches or bookmarks inside `repo/*`. Do not create a
+   Git worktree or jj workspace there unless the repository-specific guide
+   explicitly permits it and its build flow is not path-sensitive.
+4. Push feature branches or bookmarks only to the `origin` remote, never to
+   `upstream`. Name the remote explicitly, including
+   `jj git push --remote origin --bookmark <bookmark>`.
+5. Rewritten Git history may be pushed only with explicit user approval and
+   only as `git push --force-with-lease origin <branch>`. For jj, obtain the
+   same approval before moving an existing remote bookmark; jj's push safety
+   check is lease-like, and the command must still name `--remote origin`.
+6. The user creates and merges the PR.
 
-## Worktree Guidance for `repo/*` Subrepos
+## Verification
 
-**Do NOT use `git worktree` inside any `repo/*` subrepo by default.**
+Verification is read-only inspection:
 
-Most Longhorn subrepo workflows are written for normal working branches, and some legacy container build paths are still path-sensitive. Worktrees are allowed only when the repo-specific guide explicitly permits them and the local Makefile has been checked for path-sensitive build assumptions.
+- Inspect the complete local status, diff, commit graph, and commit message
+  with the commands documented by `skill://jj-vcs`.
+- Apply the message and signoff checks from `skill://commit-message`.
+- Confirm the branch or bookmark is based on the intended upstream default
+  branch and that the eventual push command names `origin`.
+- Run the repository-specific build, test, validation, and ASCII checks.
 
-**Use working branches instead:**
-```sh
-# Create and switch to a feature branch (inside the subrepo directory)
-git switch -c <storyid>-brief upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
-```
-
-This restriction does NOT apply to the workspace root or repos whose local guidance explicitly allows worktrees.
-
-## Preparation
-- Clean working tree: `git status --porcelain && git diff --exit-code && git diff --cached --exit-code`
-- Fetch upstream: `git fetch upstream`
-- Detect upstream default: `git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@'`
-- Fail fast if `refs/remotes/upstream/HEAD` missing (fix remote before proceeding).
-
-## Rebase and Safety
-- Optional safety branch: `git branch backup/$(date +%Y%m%d%H%M%S)`
-- Rebase: `git rebase upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')`
-- Conflict policy: prefer upstream unless intentional deviation; use `git rebase --continue` after resolves.
-
-## Squash and Signoff
-- Squash to single commit (e.g., `git rebase -i upstream/<default>`)
-- Signoff (repo-scoped exception when required): `git commit -s -m "<storyid>-brief: summary"`
-
-## Push Policy
-- Push only to origin/feature: `git push -u origin HEAD`
-- Default forbid force; if updating PR after squash, use `git push --force-with-lease origin HEAD` with explicit approval.
-
-## Verification Commands (non-destructive)
-```sh
-git status --porcelain && git diff --exit-code && git diff --cached --exit-code
-git fetch upstream
-git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@'
-git rebase --stat --dry-run upstream/$(git symbolic-ref refs/remotes/upstream/HEAD | sed 's@refs/remotes/upstream/@@')
-git commit -s --allow-empty -m "verify-signoff" && git reset HEAD~
-git push --dry-run origin HEAD
-```
-Remove the temporary empty commit after verification.
-
-## Force/Signoff Rules
-- Force push is forbidden by default; only `--force-with-lease` when explicitly needed for PR update.
-- Signoff automation is prohibited unless the repo-specific guide (e.g., repo/AGENTS.md) mandates `-s`.
-
-## Checklist (copyable)
-- [ ] Clean working tree
-- [ ] Fetched upstream
-- [ ] Upstream default detected via symbolic-ref
-- [ ] Rebased on upstream default, conflicts resolved
-- [ ] Single commit with required signoff (if repo demands it)
-- [ ] Pushed to origin (never upstream)
-- [ ] If force needed, used `--force-with-lease` with approval
+A rebase is a workflow action, not a verification probe. Do not create a
+temporary commit, reset history, or contact a remote with a dry-run push to
+verify local state.
