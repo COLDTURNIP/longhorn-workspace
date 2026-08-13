@@ -12,7 +12,7 @@ After execution, the agent must summarize:
 4. Repository definitions come from `repo/repo-list.json` (path key -> `upstream` required, `origin` optional).
 
 ```bash
-bash .opencode/commands/init-workspace.sh $ARGUMENTS
+bash scripts/init-workspace.sh $ARGUMENTS
 ```
 
 Options:

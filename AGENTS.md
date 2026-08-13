@@ -11,11 +11,13 @@
 ## Hard guardrails
 
 - Keep every file, log, and commit message ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes, after generating `ticket/*` analysis reports, and after multi-file refactors.
-- YAML files changed: before completion, run `bash .opencode/commands/yaml-duplicate-key-check.sh <yaml-file> [yaml-file...]` on every changed YAML file (`--dry-run` only previews checks).
+- YAML files changed: before completion, run `bash scripts/yaml-duplicate-key-check.sh <yaml-file> [yaml-file...]` on every changed YAML file (`--dry-run` only previews checks).
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
 - The user creates and merges pull requests. Agents must not create or merge them.
 - Local commits may include edits to the workspace-root `AGENTS.md`, repo-level or nested `AGENTS.md` files, and `AGENTS.d/*` policy files. Never push any such policy change.
+
+- If `skill://<name>` is unavailable and `agent-skills/<name>/SKILL.md` exists, read that project-owned source entrypoint for the current task and tell the user to install it with `npx skills add ./agent-skills --skill <name>`. Do not apply this fallback to external skills absent from `agent-skills/`.
 
 ## Conditional skills
 

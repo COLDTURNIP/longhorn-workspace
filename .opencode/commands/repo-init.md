@@ -6,7 +6,7 @@ Run the repo initialization workflow. By default this performs real clone/init a
 The source of truth is `repo/repo-list.json`, where each key is a target path under `repo/` and each value defines a mandatory `upstream` full git URL and optional `origin` full git URL.
 
 ```bash
-bash .opencode/commands/repo-init.sh $ARGUMENTS
+bash scripts/repo-init.sh $ARGUMENTS
 ```
 
 Options:
