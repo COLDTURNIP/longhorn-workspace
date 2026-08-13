@@ -1,14 +1,15 @@
 ---
 name: longhorn-build-system
 description: >
-  Use when asked how Make targets work in Longhorn repos, adding or debugging a
-  build/test/validate/package task, checking Docker Buildx behavior, or deciding
-  whether a repo still uses a legacy Dapper flow.
+  Use when selecting, adding, or debugging Longhorn build/test/validate/package
+  workflows; checking Buildx or legacy Dapper behavior; or changing shared
+  libraries, APIs, dependencies, or lower-layer components that require
+  downstream module and version coordination.
 compatibility: opencode
 metadata:
   applies-to: longhorn-manager, longhorn-engine, longhorn-instance-manager, longhorn-share-manager, backing-image-manager, longhorn-spdk-engine, cli, shared helper repos
   excludes: csi-* repos unless their own Makefile says otherwise
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Longhorn Build System
@@ -28,6 +29,42 @@ For current native Longhorn repos, Make usually runs Docker Buildx against
 multi-stage Dockerfiles. Do not treat host `go build` or `go test` as final
 verification. Quick host-side Go commands can be useful for iteration, but the
 result that matters is the repo Make target.
+
+## Dependency Impact
+
+Changes to a shared library, public API, dependency version, or lower-layer
+component require impact analysis as well as the repo-local Make workflow.
+
+Use this layer map to find likely dependents; it is a search order, not proof of
+a direct dependency:
+
+1. `types`, `go-common-libs` -> helpers, engines, managers
+2. `backupstore`, `go-iscsi-helper`, `go-spdk-helper`, `sparse-tools` -> engines
+3. `longhorn-engine`, `longhorn-spdk-engine` -> `longhorn-instance-manager`
+4. `longhorn-instance-manager` -> `longhorn-manager` -> `longhorn-share-manager`
+
+The arrows include integration and release impact. The current downstream
+`go.mod` files determine module dependencies.
+
+### Dependency-change workflow
+
+1. Identify the changed module, exported API, or external component and start
+   with the likely dependents above.
+2. MUST inspect candidate downstream `go.mod` files. Classify confirmed
+   consumers separately from likely integration dependents.
+3. MUST coordinate a consumable upstream version and each confirmed
+   downstream `go.mod` version update. Update `go.sum` and vendored content
+   according to that repo's established module workflow.
+4. Temporary local filesystem `replace` directives MAY support development.
+   MUST remove them before finalizing the change, then run `go mod tidy` and
+   verify the resulting `go.mod` and `go.sum`. Preserve intentional
+   module-to-module replacements.
+5. For CSI sidecar or other centrally tracked external version changes, MUST
+   update `repo/dep-versions/versions.json`; inspect the file for the current
+   key and schema rather than caching version values here.
+6. MUST report confirmed consumers requiring version bumps and likely
+   dependents checked without a bump, including the reason. Verify every
+   affected repo through its own Makefile as described below.
 
 ## Current Native Pattern
 
