@@ -1,85 +1,27 @@
----
-Version: 2.1
-Last Updated: 2026-01-18
-Maintenance: Longhorn Development Team
-Purpose: Multi-Repo Workspace Development Guidance for AI Coding Agents
-Changelog: Integrated AGENTS.md and AGENTS.new.md with enhanced structure and verification procedures
----
+# Longhorn Workspace Router
 
-# Longhorn Workspace Agent Summary
+## Scope and precedence
 
-## Context Loading (Mandatory)
+- This file applies to the entire workspace. System and user instructions take precedence; a more specific `AGENTS.md` governs its subtree; this file governs otherwise.
+- For any engineering, build, dependency, or other `repo/*` work, read `repo/AGENTS.md` before acting.
+- For `ticket/*`, support-bundle, or failure-analysis work, read `ticket/AGENTS.md` before acting.
+- Before acting on a plan or delegation, orchestrators, planners, and plan reviewers must read `AGENTS.d/plan-and-delegation.md`.
+- Refer to every file with a workspace-relative path, such as `repo/longhorn-manager/controller/...`.
 
-- Engineering/build tasks (code changes, builds/tests, dependency updates, any `repo/` path) -> read `repo/AGENTS.md` first; it defines build contracts and dependency impacts.
-- Issue/ticket/support-bundle work (`ticket/` paths, failure analysis) -> read `ticket/AGENTS.md` first; it defines evidence collection and folder layout.
-- Always reference files using workspace-relative paths (e.g., `repo/longhorn-manager/controller/...`), never absolute paths.
-- Orchestrator, planner, and plan reviewer must read `AGENTS.d/plan-and-delegation.md` before acting on any plan or delegation.
-- Go source changes under `repo/*` -> read `skill://go-import-check` and run its gate before completion.
+## Hard guardrails
 
-## Workspace Scope
+- Keep every file, log, and commit message ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes, after generating `ticket/*` analysis reports, and after multi-file refactors.
+- Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
+- Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
+- The user creates and merges pull requests. Agents must not create or merge them.
+- Local commits may include edits to `AGENTS.md` and `AGENTS.d/*` policy files. Never push those policy edits.
 
-- Applies to the entire Longhorn workspace (`.opencode/` at root).
-- This summary is authoritative; detailed procedures live in `AGENTS.d/*.md`. If a subdoc conflicts, follow this summary.
-- Never commit AGENTS.md files (root or repo-level). Before PR, ensure `git status` and `git diff --cached` show no AGENTS entries.
+## Conditional skills
 
-## Non-Negotiable Policies
-
-- **ASCII-only** for all files/logs/commits. Use dual-mode scanning: repo/\* paths scan only changed/new files (exclude vendor/generated); non-repo paths scan targets directly. Quick scan: `git diff --name-only | xargs -I {} sh -c 'grep -P -n "[^\x00-\x7F]" "{}" && exit 1 || exit 0'`. Details -> `AGENTS.d/ascii-policy.md`.
-- **Force push** forbidden by default; if absolutely required, only `git push --force-with-lease origin <branch>` with explicit user approval. See `AGENTS.d/force-push-policy.md`.
-- **Signoff** (`git commit -s`) disabled by default; follow repo-level instructions (e.g., repo/AGENTS Section 5) when mandated.
-- **Minimal scope**: change only what the request requires; upstream-derived repos (csi-\*, livenessprobe) allow only targeted fixes. See `AGENTS.d/build-contract.md`.
-- **Repo setup**: when `repo/` is empty or sources are missing, prompt the user to run `/init-workspace` (defaults to executing; offer `--dry-run` if they want a preview). This command already covers repository initialization and index generation.
-- **Tests**: do not edit existing test cases in `*_test.go` files unless the user explicitly requests changes to that specific test case or file.
-- **No git worktrees in `repo/*` by default**: several subrepos still have path-sensitive containerized build flows, and the workspace PR workflow expects normal working branches. Use working branches (`git switch -c`) inside subrepos unless the repo-specific guide explicitly permits a worktree. Details -> `AGENTS.d/pr-workflow.md`.
-
-## Toolchain Quick Reference
-
-- Native Longhorn repos (manager, engine, instance-manager, share-manager, etc.): run `make build`, `make test`, `make validate`. Current native repos generally use Docker Buildx and Dockerfile stages behind Make. Do **not** treat host `go build`/`go test` as final verification.
-- longhorn-ui: `npm install && npm run build`; tests via `npm test`.
-- longhorn-tests: `pytest` or the repo's runner.
-- Legacy Dapper repos: only use Dapper when that repo's Makefile/Dockerfile.dapper still declares it.
-- Non-allowlisted/CSI repos: inspect the repo's Makefile/release tools before running commands; do not assume native Longhorn Buildx targets.
-- Packaging/Helm work: follow `AGENTS.d/crd-helm.md` for CRD sync + Helm manifest regeneration.
-
-## Git & PR Workflow (Summary)
-
-1. Create feature branch from upstream default branch.
-2. Develop locally; push only to `origin/<feature>` (never upstream).
-3. Rebase onto upstream default before pushing; resolve conflicts upstream-first unless intentionally overriding.
-4. Squash/signoff only if repo documentation requires it. Default: no automated signoff.
-5. User handles PR creation/merge. Detailed steps, branch naming, and verification commands -> `AGENTS.d/pr-workflow.md`.
-
-## QA Summary
-
-- Before declaring work done: run ASCII scan, ensure AGENTS.md is not staged, remove local go.mod replaces (`go mod tidy`), run the appropriate build/test/validate commands, and document dependency impacts when touching shared layers.
-- Full checklist and troubleshooting -> `AGENTS.d/qa-checklist.md`.
-
-## Subdoc Index
-
-- PR Workflow -> `AGENTS.d/pr-workflow.md`
-- QA Checklist -> `AGENTS.d/qa-checklist.md`
-- Impact & go.mod policy -> `AGENTS.d/impact-analysis.md`
-- CRD/Helm sync -> `AGENTS.d/crd-helm.md`
-- Context Hygiene -> `AGENTS.d/context-hygiene.md`
-- Build Contracts & repo types -> `AGENTS.d/build-contract.md`
-- ASCII Policy -> `AGENTS.d/ascii-policy.md`
-- Force Push/Git Safety -> `AGENTS.d/force-push-policy.md`
-
-## Quick Commands
-
-```bash
-# Rebase onto upstream default before push
-
-# Build/test native repo through Make (usually Docker Buildx stages)
-make build validate test
-
-# Build container image through repo packaging scripts
-make package
-
-# UI build/test
-npm install && npm run build && npm test
-
-# Verify go.mod clean before PR
-
-# Ensure AGENTS.md not tracked
-```
+- Go files under `repo/*` modified: read `skill://go-import-check` and run its gate before completion.
+- Large or automated diff, or pre-merge review: use `skill://check-test-diff`.
+- `.jj/` exists, the user mentions Jujutsu, or local version-control work is needed: use `skill://jj-vcs`.
+- Drafting, reviewing, amending, or creating a Longhorn commit message: use `skill://commit-message`.
+- Manager API types changed, CRDs are out of sync, or release manifests need regeneration: use `skill://sync-crd-helm`.
+- Adding, debugging, or selecting Longhorn build, test, validation, packaging, Buildx, or Dapper flows: use `skill://longhorn-build-system`.
+- After workspace initialization, before development, when toolchain/remotes may be misconfigured, or before a multi-step implementation plan: use `skill://verify-setup`.
