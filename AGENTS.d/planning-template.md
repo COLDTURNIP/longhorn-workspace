@@ -1,30 +1,19 @@
 # Planning Template
 
-Use this template when drafting execution plans for Longhorn workspace tasks.
+Copy one step block for each independently verifiable outcome. Contract rules live in `AGENTS.d/plan-and-delegation.md`.
 
-## Plan Step Contract
+## Step
 
-Each plan step MUST include the following fields:
+- Action: <outcome to produce>
+- Target: <explicit modification allowlist>
+- Verify Command: <copy-paste-ready verification command>
+- Evidence Path: <changed target, artifact, log, or stdout/stderr>
+- Done Criteria: <observable target state and verification result>
 
-- Action: <single concrete action>
-- Target: <single file path or command target>
-- Verify Command: <single runnable command>
-  - Must be executable by reviewer or automation.
-  - Example for ASCII enforcement:
-    bash .opencode/skills/ascii-scanner/ascii_scanner.sh --execute <path>
-  - Example for YAML duplicate-key check:
-    bash .opencode/commands/yaml-duplicate-key-check.sh <yaml-file> [more-yaml-files...]
-- Evidence Path: <artifact path or command output location>
+## Example
 
-## Example Plan Step
-
-- Action: Add ASCII enforcement to CI pipeline
-- Target: .github/workflows/ci.yaml
-- Verify Command: bash .opencode/skills/ascii-scanner/ascii_scanner.sh --execute .
-- Evidence Path: evidence/ci-ascii-scan.log
-
-## Notes
-- All fields are required for every plan step.
-- Verify Command must be copy-paste ready and declare any environment assumptions.
-- Evidence Path must point to a reproducible artifact or output location.
-- Do not reference non-existent documentation files.
+- Action: Align the planning template with the authoritative step contract
+- Target: `AGENTS.d/planning-template.md`
+- Verify Command: `python3 -c "from pathlib import Path; lines = [line for line in Path('AGENTS.d/planning-template.md').read_text().splitlines() if line.startswith('- ')]; fields = ('Action', 'Target', 'Verify Command', 'Evidence Path', 'Done Criteria'); assert tuple(line[2:].split(':', 1)[0] for line in lines) == fields * 2"`
+- Evidence Path: stdout/stderr
+- Done Criteria: The template and example each contain all five fields in authoritative order, and the verification command exits 0
