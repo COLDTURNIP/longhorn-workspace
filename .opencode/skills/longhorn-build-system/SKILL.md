@@ -193,4 +193,4 @@ make test
 - Repo Makefile: target names, Docker Buildx invocations, package commands.
 - Repo Dockerfile: build environment and stage behavior.
 - Repo scripts: implementation of build, test, validate, ci, package.
-- `repo/AGENTS.md` and `AGENTS.d/build-contract.md`: workspace policy.
+- `repo/AGENTS.md`: workspace policy.

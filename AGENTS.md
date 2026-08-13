@@ -11,6 +11,7 @@
 ## Hard guardrails
 
 - Keep every file, log, and commit message ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes, after generating `ticket/*` analysis reports, and after multi-file refactors.
+- YAML files changed: before completion, run `bash .opencode/commands/yaml-duplicate-key-check.sh <yaml-file> [yaml-file...]` on every changed YAML file (`--dry-run` only previews checks).
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
 - The user creates and merges pull requests. Agents must not create or merge them.

@@ -6,7 +6,7 @@ This file applies to all work under `repo/` and adds only Longhorn repository-sp
 
 - Treat each repository's local `Makefile` and related configuration as the authoritative build, test, validation, and packaging interface. Host `go build` or `go test` may aid diagnosis, but they are not final verification. Read `skill://longhorn-build-system` when selecting, adding, or debugging those workflows.
 - Keep changes to upstream-derived CSI sidecars and `livenessprobe` narrowly targeted. Avoid unrelated refactoring, formatting sweeps, or convention changes.
-- Before changing shared libraries, API types, dependency versions, or lower-layer components, analyze affected downstream repositories and required module/version updates. Until this guidance is relocated, read `AGENTS.d/impact-analysis.md` for the temporary impact map and checklist.
+- Before changing shared libraries, API types, dependency versions, or lower-layer components, analyze affected downstream repositories and required module/version updates. Read `skill://longhorn-build-system` for downstream impact and version coordination.
 - For manager API type, CRD, generated manifest, or Helm synchronization work, read `skill://sync-crd-helm`.
 
 ## Workflow pointers
