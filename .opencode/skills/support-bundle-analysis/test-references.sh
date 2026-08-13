@@ -34,10 +34,10 @@ echo "Test 1: File References"
 for file in SKILL.md diagnostic-flows.md patterns-library.md; do
     if [ -f "$SKILL_DIR/$file" ]; then
         info "  [PASS] $file exists"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         error "  [FAIL] $file does NOT exist"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 done
 echo ""
@@ -47,10 +47,10 @@ ANCHORS=("pod-diagnosis" "node-diagnosis" "storage-diagnosis" "network-diagnosis
 for anchor in "${ANCHORS[@]}"; do
     if grep -q "{#$anchor}" "$SKILL_DIR/diagnostic-flows.md"; then
         info "  [PASS] Anchor #$anchor exists"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         error "  [FAIL] Anchor #$anchor NOT found"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 done
 echo ""
@@ -60,10 +60,10 @@ ANCHORS=("timeline-reconstruction" "5-whys-method" "evidence-based-analysis" "pa
 for anchor in "${ANCHORS[@]}"; do
     if grep -q "{#$anchor}" "$SKILL_DIR/patterns-library.md"; then
         info "  [PASS] Anchor #$anchor exists"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         error "  [FAIL] Anchor #$anchor NOT found"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 done
 echo ""
@@ -71,18 +71,18 @@ echo ""
 echo "Test 4: References in SKILL.md"
 if grep -q "@diagnostic-flows.md" "$SKILL_DIR/SKILL.md"; then
     info "  [PASS] References to @diagnostic-flows.md found"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     error "  [FAIL] No references to @diagnostic-flows.md"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 if grep -q "@patterns-library.md" "$SKILL_DIR/SKILL.md"; then
     info "  [PASS] References to @patterns-library.md found"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     error "  [FAIL] No references to @patterns-library.md"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 echo ""
 
@@ -90,37 +90,45 @@ echo "Test 5: XML Tags Validation"
 if grep -q "<mandatory_requirements>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</mandatory_requirements>" "$SKILL_DIR/SKILL.md"; then
     info "  [PASS] <mandatory_requirements> tag properly closed"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     error "  [FAIL] <mandatory_requirements> tag not properly closed"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
-if grep -q "<confirmation_1>" "$SKILL_DIR/SKILL.md" && \
-   grep -q "</confirmation_1>" "$SKILL_DIR/SKILL.md"; then
-    info "  [PASS] <confirmation_1> tag properly closed"
-    ((PASSED++))
+if grep -q "<step_1>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</step_1>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "<ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "<outside_ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</outside_ticket_scope>" "$SKILL_DIR/SKILL.md"; then
+    info "  [PASS] <step_1> extraction decision tags properly closed"
+    PASSED=$((PASSED + 1))
 else
-    error "  [FAIL] <confirmation_1> tag not properly closed"
-    ((FAILED++))
+    error "  [FAIL] <step_1> extraction decision tags not properly closed"
+    FAILED=$((FAILED + 1))
 fi
 
-if grep -q "<confirmation_2>" "$SKILL_DIR/SKILL.md" && \
-   grep -q "</confirmation_2>" "$SKILL_DIR/SKILL.md"; then
-    info "  [PASS] <confirmation_2> tag properly closed"
-    ((PASSED++))
+if grep -q "<step_2>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</step_2>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "<ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "<outside_ticket_scope>" "$SKILL_DIR/SKILL.md" && \
+   grep -q "</outside_ticket_scope>" "$SKILL_DIR/SKILL.md"; then
+    info "  [PASS] <step_2> problem decision tags properly closed"
+    PASSED=$((PASSED + 1))
 else
-    error "  [FAIL] <confirmation_2> tag not properly closed"
-    ((FAILED++))
+    error "  [FAIL] <step_2> problem decision tags not properly closed"
+    FAILED=$((FAILED + 1))
 fi
 
 if grep -q "<problem_classification>" "$SKILL_DIR/SKILL.md" && \
    grep -q "</problem_classification>" "$SKILL_DIR/SKILL.md"; then
     info "  [PASS] <problem_classification> tag properly closed"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     error "  [FAIL] <problem_classification> tag not properly closed"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 echo ""
 

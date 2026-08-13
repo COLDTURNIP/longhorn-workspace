@@ -12,49 +12,48 @@ metadata:
 
 # Support Bundle Analysis
 
-## What I do
-
-Systematic methodology to analyze Rancher/Longhorn support bundles for root cause identification through problem-driven multi-layer diagnosis (K8s resources, pod logs, node system logs).
-
-## When to use me
-
-Troubleshooting cluster issues: backing image download, volume attachment, pod crashes, node unavailability, storage/network problems.
-
 ---
 
 ## Pre-Analysis Requirements (MANDATORY)
 
 <mandatory_requirements>
 
-<confirmation_1>
+<step_1>
 <requirement>Bundle Extraction Location</requirement>
-<ask_user>
-Where should I extract the support bundle?
+<ticket_scope>
+If analysis is under `ticket/*`, read `ticket/AGENTS.md` and follow its authoritative per-archive rule. Extract each archive to `logs/extracted/[archive_name_no_ext]/`; if it is already there, use that directory. Do not ask the user to confirm this location.
+</ticket_scope>
+<outside_ticket_scope>
+If analysis is outside `ticket/*`, ask the user to confirm where to extract the support bundle:
 - Temporary (recommended): /tmp/sb-analysis-TIMESTAMP
 - Custom path: [provide path]
 - Already extracted: [provide path]
-</ask_user>
-<failure_mode>CANNOT proceed without confirmed bundle location</failure_mode>
-</confirmation_1>
+</outside_ticket_scope>
+</step_1>
 
-<confirmation_2>
+<step_2>
 <requirement>Problem Description (CRITICAL)</requirement>
-<critical>Problem-driven analysis is CORE. Without this, analysis cannot proceed.</critical>
-<ask_user>
+<critical>Problem-driven analysis is CORE. A usable problem description is mandatory.</critical>
+<ticket_scope>
+If analysis is under `ticket/*` and `description.md` exists, read and use it as the problem description. Ask the user only if it is absent or insufficient.
+</ticket_scope>
+<outside_ticket_scope>
+If analysis is outside `ticket/*`, use a problem description already supplied by the user when it is sufficient; if not, ask the user to provide one.
+</outside_ticket_scope>
+<ask_user_when_needed>
+Use this prompt only when the applicable description source is absent or insufficient:
 Describe the problem:
 - What issue/error are you experiencing?
-- Which components affected? (Pod/Node/Storage/Network)
-- What symptoms?
-- Relevant timestamps/events?
-
-Example: "Backing image 'ubuntu' download stuck at 0% after network disconnection"
-</ask_user>
-<failure_mode>CANNOT proceed without problem description</failure_mode>
-</confirmation_2>
+- Which components are affected? (Pod/Node/Storage/Network)
+- What symptoms are present?
+- What relevant timestamps or events are known?
+</ask_user_when_needed>
+<failure_mode>Do not proceed to diagnosis without a usable problem description.</failure_mode>
+</step_2>
 
 </mandatory_requirements>
 
-<blocking>DO NOT proceed until BOTH confirmations completed</blocking>
+<decision_gate>Proceed to Phase 0 only after the applicable extraction-location branch is resolved and a usable problem description is available.</decision_gate>
 
 ---
 
@@ -67,7 +66,7 @@ Example: "Backing image 'ubuntu' download stuck at 0% after network disconnectio
 <network_issues>DNS failures, Connection timeouts -> @diagnostic-flows.md#network-diagnosis</network_issues>
 </problem_classification>
 
-Extract from user's problem description: Problem type, Affected resources, Symptoms, Timestamps
+Extract from the problem description: Problem type, Affected resources, Symptoms, Timestamps
 
 ---
 
@@ -106,8 +105,14 @@ Priority files by problem type:
 ### Decision Tree
 
 ```
-START -> [Pre-Analysis] Confirm bundle + problem -> [Phase 0] Classify -> [Phase 1] Structure
-  -> [Phase 2-3] READ @diagnostic-flows.md -> [Phase 4] READ @patterns-library.md -> END
+START
+  -> [Scope] Under `ticket/*`: read `ticket/AGENTS.md` and use `logs/extracted/[archive_name_no_ext]/`
+             Outside `ticket/*`: ask the user to confirm the extraction location
+  -> [Description] Under `ticket/*`: read `description.md` when present; ask only if absent or insufficient
+                  Outside `ticket/*`: use supplied details; ask only if absent or insufficient
+  -> [Phase 0] Classify -> [Phase 1] Structure
+  -> [Phase 2-3] READ @diagnostic-flows.md
+  -> [Phase 4] READ @patterns-library.md -> END
 ```
 
 ### Quick Links
@@ -121,10 +126,3 @@ START -> [Pre-Analysis] Confirm bundle + problem -> [Phase 0] Classify -> [Phase
 <patterns_library>Phase 4: Root cause analysis or pattern reference needed</patterns_library>
 </when_to_read>
 
----
-
-**Commands**: Standard Unix (grep, find, tail, cat) preferred for compatibility  
-**Next**: Complete Pre-Analysis + Phase 0-1, then READ @diagnostic-flows.md for Phase 2-3
-
----
-Architecture 2.0 | Updated 2026-01-16
