@@ -8,7 +8,7 @@ This workspace provides a unified environment for developing across Longhorn's m
 
 The workspace integrates AI-powered development tools through OpenCode and Oh-My-OpenCode, providing intelligent assistance for code navigation, repository initialization, build system management, and more.
 
-**Note:** Though the workspace is optimized for use with OpenCode and Oh-My-OpenCode agents, the `AGENTS**.md` files, skills, and commands, are still available for other agentic development tools like Codex and Claude Code. Just create a soft link from `AGENTS.md` and `.opencode` to the appropriate agent instruction file for your tool of choice.
+**Note:** Though the workspace is optimized for OpenCode and Oh-My-OpenCode, its agent policies, shared skills, and tools also support OMP/Pi, Claude Code, and other compatible harnesses through the installation workflow below.
 
 ## TL;DR: Quick Start
 
@@ -39,26 +39,20 @@ The workspace is organized as follows:
 workspace-root/
   README.md                     (this file)
   AGENTS.md                     (AI agent instructions - not for commit)
-  .opencode/                    (local development state)
-    commands/                   (OpenCode slash commands)
-      init-workspace.md         (/init-workspace command template)
-      init-workspace.sh         (Executable command script)
-      repo-init.md              (/repo-init command template)
-      repo-init.sh              (Executable command script)
-      yaml-duplicate-key-check.md   (/yaml-duplicate-key-check command template)
-      yaml-duplicate-key-check.sh   (Executable command script)
-    skills/                     (AI skills)
-      ascii-scanner/            (ASCII policy enforcement)
-      check-test-diff/          (Go test diff guard)
-      interaction-mapper/       (Architectural mapping)
-      jenkins-ops/              (Approved Jenkins job operations)
-      longhorn-build-system/    (Build system expertise)
-      longhorn-user-docs/       (Documentation assistance)
-      repo-navigator/           (Code navigation)
-      support-bundle-analysis/  (Diagnostics)
-      sync-crd-helm/            (CRD/Helm synchronization)
-      ticket-sanitizer/         (Ticket validation)
-      verify-setup/             (Workspace setup verification)
+  agent-skills/                 (maintained source for shared AI skills)
+    ascii-scanner/              (each skill contains SKILL.md)
+    ...
+  scripts/                      (direct workspace tool interface)
+    init-workspace.sh
+    repo-init.sh
+    yaml-duplicate-key-check.sh
+  .agents/skills/               (generated universal project skill cache)
+  .opencode/
+    commands/                   (thin OpenCode slash-command adapters)
+      init-workspace.md         (/init-workspace adapter)
+      repo-init.md              (/repo-init adapter)
+      yaml-duplicate-key-check.md   (/yaml-duplicate-key-check adapter)
+    skills -> ../.agents/skills (OMP/Pi compatibility path)
   repo/                         (all Longhorn repositories)
     repo-list                   (List of repositories to clone - used by /init-workspace command)
     backing-image-manager/      (Team-owned component)
@@ -95,6 +89,28 @@ Clone the workspace repository.
 git clone https://github.com/COLDTURNIP/longhorn-workspace.git
 cd longhorn-workspace
 ```
+
+Install the project skills immediately after cloning:
+
+```bash
+npx skills add ./agent-skills
+```
+
+In the interactive prompts, choose only the skills you need, select your active
+harness, and keep the installation at project scope. The CLI stages local-source
+content in the universal `.agents/skills` cache and may create harness-specific
+links. Installed content is not linked back to the maintained `agent-skills/`
+source, so rerun the same add command after source changes.
+
+For a deterministic one-skill OpenCode/OMP refresh, run:
+
+```bash
+npx skills add ./agent-skills --skill <skill-name> --agent opencode --copy --yes
+```
+
+The `.opencode/skills` compatibility symlink exposes the universal cache to
+OMP/Pi. Claude Code and Pi users who want harness-specific locations should
+select the corresponding agent target in the interactive installer.
 
 ### Starts with AI Agent
 
@@ -167,13 +183,13 @@ If you prefer manual setup:
 
 ```bash
 # Initialize repositories using the /init-workspace command
-bash .opencode/commands/init-workspace.sh --dry-run  # Preview actions
-bash .opencode/commands/init-workspace.sh            # Execute (default)
+bash scripts/init-workspace.sh --dry-run  # Preview actions
+bash scripts/init-workspace.sh            # Execute (default)
 ```
 
 ## Working with Skills
 
-The workspace includes specialized AI skills under `.opencode/skills/` that automate common development tasks. You can ask the agent to use these skills for various operations:
+The workspace maintains specialized AI skills under `agent-skills/`. Install the selected skills into `.agents/skills` as described above, then ask the agent to use them for common development tasks.
 
 ### Available Commands
 
@@ -185,6 +201,15 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 
 - **/yaml-duplicate-key-check**: Detect duplicate YAML keys in one or more files (read-only; exits non-zero when violations are found)
   - Example: "/yaml-duplicate-key-check repo/longhorn/chart/values.yaml" or "run /yaml-duplicate-key-check --dry-run repo/longhorn/chart/values.yaml"
+
+The Markdown files under `.opencode/commands/` are thin OpenCode slash-command
+adapters. The same tools can be called directly with:
+
+```bash
+bash scripts/init-workspace.sh
+bash scripts/repo-init.sh
+bash scripts/yaml-duplicate-key-check.sh <yaml-file>
+```
 
 ### Available Skills
 
@@ -250,7 +275,7 @@ The workspace includes specialized AI skills under `.opencode/skills/` that auto
 3. **Multiple skills**: The agent can chain multiple skills
    - Example: "init workspace and analyze the architecture" will run `/init-workspace`
 
-4. **Skill documentation**: Each skill has documentation in `.opencode/skills/[skill-name]/SKILL.md`
+4. **Skill documentation**: Each skill has documentation in `agent-skills/<skill-name>/SKILL.md`
    - Example: "show me the repo-navigator skill documentation"
 
 ## Additional Resources
