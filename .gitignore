@@ -9,6 +9,7 @@ ticket/*
 !ticket/AGENTS.md
 context/*
 !context/.placeholder
+docs/
 
 # Canonical maintained sources
 !agent-skills/
