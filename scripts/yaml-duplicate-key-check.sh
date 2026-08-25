@@ -108,8 +108,9 @@ if not files:
 missing = False
 violations = []
 
-# match 'key: rest' lines ignoring lines that start with '-' or '#'
+# Match ordinary mapping keys and sequence items containing inline mapping keys.
 key_re = re.compile(r"^(?P<indent>[ \t]*)(?P<key>[^#:\-][^:]*?)\s*:\s*(?P<rest>.*)$")
+sequence_re = re.compile(r"^(?P<indent>[ \t]*)-\s*(?P<rest>.*)$")
 
 for path in files:
     try:
@@ -126,6 +127,28 @@ for path in files:
         line = raw.rstrip("\n")
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
+            continue
+        if stripped in ("---", "..."):
+            stack = [(-1, {})]
+            continue
+
+        sequence = sequence_re.match(line)
+        if sequence:
+            sequence_indent = len(sequence.group("indent").replace("\t", "    "))
+            while stack and sequence_indent <= stack[-1][0]:
+                stack.pop()
+            if not stack:
+                stack = [(-1, {})]
+
+            item_keys = {}
+            stack.append((sequence_indent, item_keys))
+            item_rest = sequence.group("rest")
+            inline_key = key_re.match(" " * (sequence_indent + 2) + item_rest)
+            if inline_key:
+                key = inline_key.group("key").strip()
+                item_keys[key] = idx
+                if inline_key.group("rest").strip() == "":
+                    stack.append((sequence_indent + 2, {}))
             continue
 
         m = key_re.match(line)
