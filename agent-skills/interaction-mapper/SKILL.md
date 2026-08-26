@@ -4,7 +4,6 @@ description: >
   Use when modifying a CRD schema or gRPC proto definition to assess impact, when a
   K8s resource is stuck in an unexpected state and the responsible controller is unknown,
   or when tracing the call chain between Manager and Instance Manager.
-compatibility: opencode
 metadata:
   version: "1.0"
   impact: High (Architectural Awareness)

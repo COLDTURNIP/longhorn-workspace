@@ -4,7 +4,6 @@ description: >
   Use when the user needs operational guidance from Longhorn docs: installation, upgrade,
   settings, UI steps, or version-specific troubleshooting. Do NOT use for source code
   internals or controller behavior.
-compatibility: opencode
 metadata:
   repos: longhorn (website)
   doc_source_root: longhorn/website/content/docs

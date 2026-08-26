@@ -4,7 +4,6 @@ description: >
   Use when creating or renaming ticket folders, or when existing folders in ticket/
   do not follow the ${org}-${ticket_id}-${description} naming convention. Also use
   to initialize logs/ and repro/ subdirectories in a new ticket folder.
-compatibility: opencode
 metadata:
   version: "1.1"
   impact: Medium (Workflow Optimization)

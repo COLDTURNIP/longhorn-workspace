@@ -4,7 +4,6 @@ description: >
   Use when asked "where is the logic for X?" across Longhorn repos, or when locating
   a controller, handler, or gRPC implementation requires searching multiple repos.
   Prefer this over raw grep for CRD-to-controller or RPC topology questions.
-compatibility: opencode
 metadata:
   version: "1.0"
   impact: High (Efficiency)

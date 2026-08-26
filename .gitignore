@@ -17,13 +17,7 @@ docs/
 !scripts/
 !scripts/**
 
-# OpenCode
-.opencode/*
-!.opencode/skills
-!.opencode/agents/
-!.opencode/agents/**
-!.opencode/commands/
-!.opencode/commands/*.md
+.opencode/
 .agents/
 skills-lock.json
 .sisyphus

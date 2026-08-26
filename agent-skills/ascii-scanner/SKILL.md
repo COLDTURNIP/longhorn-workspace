@@ -4,7 +4,6 @@ description: >
   Use before committing changes in repo/, after generating analysis reports in ticket/,
   or after any multi-file refactoring task, to catch non-ASCII characters, emojis, or
   smart quotes that violate the ASCII-only policy.
-compatibility: opencode
 metadata:
   version: "1.0"
   impact: High (Policy Enforcement)

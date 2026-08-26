@@ -5,7 +5,6 @@ description: >
   workflows; checking Buildx or legacy Dapper behavior; or changing shared
   libraries, APIs, dependencies, or lower-layer components that require
   downstream module and version coordination.
-compatibility: opencode
 metadata:
   applies-to: longhorn-manager, longhorn-engine, longhorn-instance-manager, longhorn-share-manager, backing-image-manager, longhorn-spdk-engine, cli, shared helper repos
   excludes: csi-* repos unless their own Makefile says otherwise

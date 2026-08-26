@@ -45,6 +45,7 @@ Options:
 USAGE
 }
 
+JSON_OUTPUT=false
 JSON_STDOUT_FD=1
 WRAPPER_ARGS=()
 while [ "$#" -gt 0 ]; do
@@ -84,7 +85,7 @@ TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 if [ "$DRY_RUN" = true ]; then
   EVIDENCE_DIR="/tmp/init-workspace.${TIMESTAMP}"
 else
-  EVIDENCE_DIR=".opencode/tmp/init-workspace/${TIMESTAMP}"
+  EVIDENCE_DIR=".agents/tmp/init-workspace/${TIMESTAMP}"
 fi
 LOG_DIR="${EVIDENCE_DIR}/logs"
 REPO_JSON_FILE="${EVIDENCE_DIR}/repo-init.json"
@@ -186,7 +187,7 @@ PY
 
 write_embedded_manifest
 prune_evidence_glob "/tmp/init-workspace.*" "$KEEP_EVIDENCE_RUNS" "$EVIDENCE_DIR"
-prune_evidence_glob ".opencode/tmp/init-workspace/*" "$KEEP_EVIDENCE_RUNS" "$EVIDENCE_DIR"
+prune_evidence_glob ".agents/tmp/init-workspace/*" "$KEEP_EVIDENCE_RUNS" "$EVIDENCE_DIR"
 
 run_repo_init() {
   local repo_log_file repo_rc

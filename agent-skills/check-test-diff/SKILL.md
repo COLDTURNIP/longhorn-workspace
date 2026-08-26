@@ -3,7 +3,6 @@ name: check-test-diff
 description: >
   Use before merging or after large/automated changes to verify no *_test.go files were
   accidentally deleted or had more than 100 lines removed in the current diff.
-compatibility: opencode
 metadata:
   version: "0.2"
   impact: High
