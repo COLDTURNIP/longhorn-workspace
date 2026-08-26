@@ -1,27 +1,28 @@
 # Longhorn Multi-Repository Workspace
 
-A comprehensive development workspace for the Longhorn distributed block storage system for Kubernetes, designed for development with **OpenCode plus Oh-My-OpenCode agents**.
+A comprehensive development workspace for the Longhorn distributed block storage
+system for Kubernetes, designed for use with compatible coding-agent harnesses.
 
 ## Overview
 
-This workspace provides a unified environment for developing across Longhorn's multiple repositories. Longhorn is a lightweight, reliable, and powerful distributed block storage system designed for Kubernetes.
+This workspace provides a unified environment for developing across Longhorn's
+multiple repositories. Longhorn is a lightweight, reliable, and powerful
+distributed block storage system designed for Kubernetes.
 
-The workspace integrates AI-powered development tools through OpenCode and Oh-My-OpenCode, providing intelligent assistance for code navigation, repository initialization, build system management, and more.
-
-**Note:** Though the workspace is optimized for OpenCode and Oh-My-OpenCode, its agent policies, shared skills, and tools also support OMP/Pi, Claude Code, and other compatible harnesses through the installation workflow below.
+The workspace combines shared agent skills, repository-management scripts, and
+workspace policies so that an active coding harness can help with code
+navigation, repository initialization, build-system management, and related
+development tasks.
 
 ## TL;DR: Quick Start
 
-Follow [QUICKSTART.md](QUICKSTART.md) for a quick setup guide to get started with OpenCode and the Longhorn workspace.
+Follow [QUICKSTART.md](QUICKSTART.md) for a quick setup guide. Select the
+harness you use when installing skills, then use the direct workspace scripts
+described below.
 
 ## Required Toolchain
 
-**For OpenCode + Oh-My-OpenCode:**
-
-- [OpenCode](https://opencode.ai/docs) (AI-powered development assistant)
-- [Oh-My-OpenCode](https://github.com/code-yeongyu/oh-my-opencode) plugin (provides additional agent design capabilities for OpenCode)
-
-**For Longhorn Development:**
+The workspace uses the following tools:
 
 - Git
 - Docker (for Dapper-based builds)
@@ -38,8 +39,8 @@ The workspace is organized as follows:
 ```
 workspace-root/
   README.md                     (this file)
-  AGENTS.md                     (AI agent instructions - not for commit)
-  agent-skills/                 (maintained source for shared AI skills)
+  AGENTS.md                     (workspace policy; may be committed locally, never pushed)
+  agent-skills/                 (maintained source for shared skills)
     ascii-scanner/              (each skill contains SKILL.md)
     ...
   scripts/                      (direct workspace tool interface)
@@ -47,43 +48,38 @@ workspace-root/
     repo-init.sh
     yaml-duplicate-key-check.sh
   .agents/skills/               (generated universal project skill cache)
-  .opencode/
-    commands/                   (thin OpenCode slash-command adapters)
-      init-workspace.md         (/init-workspace adapter)
-      repo-init.md              (/repo-init adapter)
-      yaml-duplicate-key-check.md   (/yaml-duplicate-key-check adapter)
-    skills -> ../.agents/skills (OMP/Pi compatibility path)
   repo/                         (all Longhorn repositories)
-    repo-list                   (List of repositories to clone - used by /init-workspace command)
-    backing-image-manager/      (Team-owned component)
-    cli/                        (Team-owned component)
-    longhorn-engine/            (Team-owned component)
-    longhorn-instance-manager/  (Team-owned component)
-    longhorn-manager/           (Team-owned component)
-    longhorn-share-manager/     (Team-owned component)
-    longhorn-spdk-engine/       (Team-owned component)
-    types/                      (Shared library)
-    go-common-libs/             (Shared library)
-    backupstore/                (Shared library)
-    go-iscsi-helper/            (Shared library)
-    go-spdk-helper/             (Shared library)
-    sparse-tools/               (Shared library)
-    csi-attacher/               (Upstream CSI)
-    csi-node-driver-registrar/  (Upstream CSI)
-    csi-provisioner/            (Upstream CSI)
-    csi-resizer/                (Upstream CSI)
-    csi-snapshotter/            (Upstream CSI)
-    livenessprobe/              (Upstream CSI)
-    longhorn/                   (Packaging - Helm chart)
-    longhorn-ui/                (Packaging - Frontend)
-    longhorn-tests/             (Integration tests)
-    dep-versions/               (Version coordination)
+    repo-list.example.json      (example repository configuration)
+    repo-list.json              (local repository configuration)
+    backing-image-manager/      (team-owned component)
+    cli/                        (team-owned component)
+    longhorn-engine/            (team-owned component)
+    longhorn-instance-manager/  (team-owned component)
+    longhorn-manager/           (team-owned component)
+    longhorn-share-manager/     (team-owned component)
+    longhorn-spdk-engine/       (team-owned component)
+    types/                      (shared library)
+    go-common-libs/              (shared library)
+    backupstore/                (shared library)
+    go-iscsi-helper/            (shared library)
+    go-spdk-helper/             (shared library)
+    sparse-tools/               (shared library)
+    csi-attacher/               (upstream CSI)
+    csi-node-driver-registrar/  (upstream CSI)
+    csi-provisioner/            (upstream CSI)
+    csi-resizer/                (upstream CSI)
+    csi-snapshotter/            (upstream CSI)
+    livenessprobe/              (upstream CSI)
+    longhorn/                   (packaging - Helm chart)
+    longhorn-ui/                (packaging - frontend)
+    longhorn-tests/             (integration tests)
+    dep-versions/               (version coordination)
   ticket/                       (task-specific workspace for case studies)
 ```
 
 ## Initialization
 
-Clone the workspace repository.
+Clone the workspace repository:
 
 ```bash
 git clone https://github.com/COLDTURNIP/longhorn-workspace.git
@@ -102,26 +98,11 @@ content in the universal `.agents/skills` cache and may create harness-specific
 links. Installed content is not linked back to the maintained `agent-skills/`
 source, so rerun the same add command after source changes.
 
-For a deterministic one-skill OpenCode/OMP refresh, run:
+### Configure Repository Sources
 
-```bash
-npx skills add ./agent-skills --skill <skill-name> --agent opencode --copy --yes
-```
-
-The `.opencode/skills` compatibility symlink exposes the universal cache to
-OMP/Pi. Claude Code and Pi users who want harness-specific locations should
-select the corresponding agent target in the interactive installer.
-
-### Starts with AI Agent
-
-The fastest way to initialize the workspace is using the AI agent. Launch OpenCode in the root of the workspace:
-
-```bash
-opencode .
-```
-
-Before running any initialization prompt or command, configure `repo/repo-list.json`.
-This file is the source of truth for per-repository `upstream` and optional `origin` remotes.
+Before running any initialization prompt or command, configure
+`repo/repo-list.json`. This file is the source of truth for each repository's
+required `upstream` remote and optional `origin` remote.
 
 Quick start tip: copy the example file and then edit it for your own fork URLs.
 
@@ -153,129 +134,152 @@ Format notes:
 - `upstream` is required and must be a full git URL.
 - `origin` is optional and should point to your writable fork URL.
 
-**Initialization Prompt:**
+### Using an AI Coding Harness
+
+From the workspace root, ask your active harness to initialize the workspace:
 
 ```
 initialize the workspace
 ```
 
-Or, use a direct command explicitly:
+The harness should run `bash scripts/init-workspace.sh`. This script:
 
-```
-/init-workspace
-```
+1. Clones all component source repositories from `repo/repo-list.json` into
+   `repo/`.
+2. Configures each repository with an `upstream` remote pointing to the
+   official Longhorn repository.
+3. Configures the local `upstream` branch to track the upstream default branch
+   (main or master).
+4. Configures an optional `origin` remote when one is specified.
+5. Generates architectural indices (currently `interaction-mapper`) under
+   `context/indices/` so the harness can understand cross-repository
+   architecture for navigation and implementation tasks.
 
-When you provide this prompt to the AI agent:
+The initialization script applies remotes from `repo/repo-list.json`. Update
+that file first whenever you need to change upstream or personal fork (`origin`)
+URLs.
 
-1. The agent automatically runs the `/init-workspace` command to set up the Git source code repositories based on `repo/repo-list.json`
-2. All component source repositories from `repo/repo-list.json` are cloned into the `repo/` directory
-3. Each repository is configured with:
-   - `upstream` remote pointing to the official Longhorn repository
-   - Local `upstream` branch tracking the upstream default branch (main or master)
-4. The command runs index generation (currently `interaction-mapper`) under `context/indices/` so the agent can understand cross-repo architecture for navigation and implementation tasks.
+### Manual Initialization
 
-**Note:** The `/init-workspace` command applies remotes from `repo/repo-list.json`.
-Update that file first whenever you need to change upstream or personal fork (`origin`) URLs.
-
-### Manual Initialization (Alternative)
-
-If you prefer manual setup:
+Run the scripts directly when you prefer to initialize without an AI harness:
 
 ```bash
-# Initialize repositories using the /init-workspace command
 bash scripts/init-workspace.sh --dry-run  # Preview actions
 bash scripts/init-workspace.sh            # Execute (default)
 ```
 
 ## Working with Skills
 
-The workspace maintains specialized AI skills under `agent-skills/`. Install the selected skills into `.agents/skills` as described above, then ask the agent to use them for common development tasks.
+The workspace maintains shared skills under `agent-skills/`. Install selected
+skills into `.agents/skills` as described above, then ask the active harness to
+use them for common development tasks. Mention a skill by name or describe the
+task you want to accomplish; no product-specific setup is required.
 
-### Available Commands
+### Available Scripts
 
-- **/init-workspace**: Initialize all repositories from `repo/repo-list.json`, configure `upstream` remotes and local `upstream` branches (and optional `origin` remotes when configured), then generate architectural indices (execute by default; use `--dry-run` and `--json` as needed)
-  - Example: "/init-workspace --dry-run" or "run /init-workspace to prepare this workspace"
+These scripts are direct workspace tools:
 
-- **/repo-init**: Initialize and clone all repositories with upstream configuration (execute by default; use `--dry-run` and `--json` as needed)
-  - Example: "/repo-init --dry-run" or "run /repo-init when you only want repository setup"
-
-- **/yaml-duplicate-key-check**: Detect duplicate YAML keys in one or more files (read-only; exits non-zero when violations are found)
-  - Example: "/yaml-duplicate-key-check repo/longhorn/chart/values.yaml" or "run /yaml-duplicate-key-check --dry-run repo/longhorn/chart/values.yaml"
-
-The Markdown files under `.opencode/commands/` are thin OpenCode slash-command
-adapters. The same tools can be called directly with:
-
-```bash
-bash scripts/init-workspace.sh
-bash scripts/repo-init.sh
-bash scripts/yaml-duplicate-key-check.sh <yaml-file>
-```
+- `bash scripts/init-workspace.sh`: Initialize repositories from
+  `repo/repo-list.json`, configure `upstream` and optional `origin` remotes and
+  local `upstream` branches, then generate architectural indices. Use
+  `--dry-run` to preview actions and `--json` when machine-readable output is
+  needed.
+- `bash scripts/repo-init.sh`: Initialize and clone repositories with upstream
+  configuration. Use `--dry-run` to preview actions and `--json` when
+  machine-readable output is needed.
+- `bash scripts/yaml-duplicate-key-check.sh <yaml-file>`: Detect duplicate YAML
+  keys in one or more files. This is read-only and exits non-zero when
+  violations are found. Use `--dry-run` to preview checks.
 
 ### Available Skills
 
-- **ascii-scanner**: Scan and enforce ASCII-only policy
-  - Example (repo/\*): "use ascii-scanner on changed files under repo/<repo-name>, excluding vendor/generated"
-  - Example (non-repo): "use ascii-scanner to check specific files outside repo/"
+#### Workspace and Repository Operations
 
-- **check-test-diff**: Guard against accidental risky changes to Go test files in git diff
-  - Example: "use check-test-diff to review test-file changes in repo/longhorn-manager"
+- **interaction-mapper**: Generate architectural maps showing component
+  interactions.
+  - Example: "map the interactions between components"
+- **repo-navigator**: Navigate and search across multiple repositories.
+  - Example: "find the VolumeController implementation"
+- **verify-setup**: Verify local workspace and toolchain readiness before
+  implementation.
+  - Example: "verify the workspace prerequisites"
 
-- **interaction-mapper**: Generate architectural maps showing component interactions
-  - Example: "map the interactions between components" or "use interaction-mapper to analyze the architecture"
+#### Build, API, and Integration Workflows
 
-- **longhorn-build-system**: Build system expertise for various toolchains
-  - Example: "use longhorn-build-system skill to build longhorn-manager"
+- **go-import-check**: Check changed Go files against the workspace import
+  convention.
+  - Example: "check imports for the changed Go files"
+- **jenkins-ops**: Safely list, trigger, monitor, inspect, and troubleshoot the
+  approved Longhorn Jenkins jobs.
+  - Example: "review the regression job parameters"
+- **longhorn-build-system**: Provide build-system expertise for Longhorn
+  toolchains, validation, packaging, Buildx, and Dapper flows.
+  - Example: "build longhorn-manager using the Longhorn build workflow"
+- **sync-crd-helm**: Synchronize CRD definitions with Helm charts.
+  - Example: "update the Helm chart with the latest CRDs"
 
-- **longhorn-user-docs**: Assist with user documentation
-  - Example: "use longhorn-user-docs skill to update documentation"
+#### Documentation and Issue Workflows
 
-- **jenkins-ops**: Safely list, trigger, monitor, inspect, and troubleshoot the approved Longhorn Jenkins jobs
-  - Example: "use jenkins-ops to review the regression job parameters"
-  - Before using `jenkins-ops`, create or update the workspace-root `.env` file:
-    ```bash
-    JENKINS_URL=https://jenkins.example.com
-    JENKINS_USER=your-jenkins-user
-    JENKINS_TOKEN=your-jenkins-api-token
-    JENKINS_NOTIFY_SLACK_CHANNEL=your-slack-channel-id
-    JENKINS_SSH_IDENTITY_FILE=~/.ssh/your-private-key
-    JENKINS_SSH_USER=your-remote-user
-    ```
+- **design-qa-verification-steps**: Draft or review Longhorn issue verification
+  steps and manual test plans.
+  - Example: "draft verification steps for this issue"
+- **longhorn-user-docs**: Assist with Longhorn operational documentation,
+  installation, upgrades, settings, and troubleshooting.
+  - Example: "update the documentation for this setting"
+- **support-bundle-analysis**: Analyze Longhorn support bundles and diagnose
+  cluster issues.
+  - Example: "analyze this support bundle"
+- **ticket-sanitizer**: Validate and sanitize ticket information.
+  - Example: "validate this issue description"
 
-- `JENKINS_URL`, `JENKINS_USER`, and `JENKINS_TOKEN` are required for Jenkins API operations. The token needs Job/Read and Job/Build.
-- `JENKINS_NOTIFY_SLACK_CHANNEL` is optional. When it is nonempty, every approved job trigger automatically sets `SEND_SLACK_NOTIFICATION=true` and passes the channel through `NOTIFY_SLACK_CHANNEL`.
-- `JENKINS_SSH_IDENTITY_FILE` and `JENKINS_SSH_USER` are required only for job-host SSH troubleshooting.
-- Keep `.env` local and never commit or share its contents. Restrict its permissions with `chmod 600 .env`.
-- Restart the AI harness after changing `.env` so new processes inherit the updated values.
+#### Quality and Change Safeguards
 
-- **repo-navigator**: Navigate and search across multiple repositories
-  - Example: "use repo-navigator to find VolumeController implementation"
+- **ascii-scanner**: Scan changed files and enforce the ASCII-only policy.
+  - Example: "scan the changed files for non-ASCII characters"
+- **check-test-diff**: Guard against accidental risky changes to Go test files
+  in a diff.
+  - Example: "review test-file changes in repo/longhorn-manager"
+- **commit-message**: Draft and review Longhorn commit messages according to
+  repository requirements.
+  - Example: "review this commit message"
 
-- **support-bundle-analysis**: Analyze Longhorn support bundles
-  - Example: "use support-bundle-analysis to diagnose this support bundle"
+#### Jenkins Environment Cautions
 
-- **sync-crd-helm**: Synchronize CRD definitions with Helm charts
-  - Example: "use sync-crd-helm to update Helm chart with latest CRDs"
+Before using `jenkins-ops`, create or update the workspace-root `.env` file:
 
-- **ticket-sanitizer**: Validate and sanitize ticket information
-  - Example: "use ticket-sanitizer to validate this issue description"
+```bash
+JENKINS_URL=https://jenkins.example.com
+JENKINS_USER=your-jenkins-user
+JENKINS_TOKEN=your-jenkins-api-token
+JENKINS_NOTIFY_SLACK_CHANNEL=your-slack-channel-id
+JENKINS_SSH_IDENTITY_FILE=~/.ssh/your-private-key
+JENKINS_SSH_USER=your-remote-user
+```
 
-- **verify-setup**: Verify local workspace/toolchain readiness before implementation
-  - Example: "use verify-setup to validate workspace prerequisites"
+- `JENKINS_URL`, `JENKINS_USER`, and `JENKINS_TOKEN` are required for Jenkins
+  API operations. The token needs Job/Read and Job/Build.
+- `JENKINS_NOTIFY_SLACK_CHANNEL` is optional. When it is nonempty, every
+  approved job trigger automatically sets `SEND_SLACK_NOTIFICATION=true` and
+  passes the channel through `NOTIFY_SLACK_CHANNEL`.
+- `JENKINS_SSH_IDENTITY_FILE` and `JENKINS_SSH_USER` are required only for
+  job-host SSH troubleshooting.
+- Keep `.env` local and never commit or share its contents. Restrict its
+  permissions with `chmod 600 .env`.
+- Restart the active harness after changing `.env` so new processes inherit the
+  updated values.
 
 ### Tips for Using Skills
 
-1. **Direct skill invocation**: Mention the skill name in your prompt
+1. **Direct skill invocation**: Mention the skill name in your prompt.
    - "use [skill-name] skill to [task]"
    - "invoke [skill-name] for [purpose]"
-
-2. **Task-based requests**: Describe what you want to accomplish
-   - The agent will automatically select appropriate automation
-   - Example: "initialize the workspace" will trigger `/init-workspace`
-
-3. **Multiple skills**: The agent can chain multiple skills
-   - Example: "init workspace and analyze the architecture" will run `/init-workspace`
-
-4. **Skill documentation**: Each skill has documentation in `agent-skills/<skill-name>/SKILL.md`
+2. **Task-based requests**: Describe what you want to accomplish. The active
+   harness can select an appropriate skill.
+   - Example: "initialize the workspace"
+3. **Multiple skills**: Ask for a task that combines their purposes.
+   - Example: "initialize the workspace and analyze the architecture"
+4. **Skill documentation**: Each skill has documentation in
+   `agent-skills/<skill-name>/SKILL.md`.
    - Example: "show me the repo-navigator skill documentation"
 
 ## Additional Resources
@@ -286,4 +290,5 @@ bash scripts/yaml-duplicate-key-check.sh <yaml-file>
 
 ---
 
-**Note**: This workspace includes an `AGENTS.md` file with instructions for AI coding agents. This file should never be committed to any repository - it's workspace-local only.
+**Note**: This workspace includes `AGENTS.md` policy instructions. Policy files
+may be committed locally when needed, but must never be pushed.
