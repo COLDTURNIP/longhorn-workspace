@@ -98,6 +98,20 @@ content in the universal `.agents/skills` cache and may create harness-specific
 links. Installed content is not linked back to the maintained `agent-skills/`
 source, so rerun the same add command after source changes.
 
+### Claude Code tip
+
+Claude Code support is optional and local. `CLAUDE.md` is an intentionally
+ignored, uncommitted compatibility symlink to the authoritative `AGENTS.md`.
+After cloning, create it with:
+
+```bash
+ln -s AGENTS.md CLAUDE.md
+```
+
+Run the existing `npx skills add ./agent-skills` flow, selecting Claude Code
+and project scope for the skills you want. Maintained skill sources remain
+under `agent-skills/`; `.claude/` is generated/local state.
+
 ### Configure Repository Sources
 
 Before running any initialization prompt or command, configure

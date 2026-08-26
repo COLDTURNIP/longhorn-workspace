@@ -24,6 +24,7 @@ skills-lock.json
 
 # Claude Code
 .claude/*
+/CLAUDE.md
 
 # Pi
 .omp/*
