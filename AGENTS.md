@@ -15,6 +15,10 @@
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
 - The user creates and merges pull requests. Agents must not create or merge them.
+- For GitHub comments, reviews, and review threads, provide draft text for the user to post. Never post, reply, edit, delete, resolve, or otherwise mutate them.
+- Treat published commits as immutable. Create child changes from clean published parents; never amend, squash, rebase, abandon, or otherwise rewrite them without explicit user approval for that exact history rewrite.
+- Treat `agent-skills/` and `scripts/` as authoritative project sources. Treat `.claude/skills/` and `.agents/skills/` as installed or generated caches; never edit them as the source of a policy or skill change.
+- In public documentation, issues, pull request text, and design proposals, name repositories as `longhorn/<repository>` and use public GitHub links. Never expose workspace-local paths such as `repo/longhorn-manager/...` in externally consumed content.
 - Local commits may include edits to the workspace-root `AGENTS.md`, repo-level or nested `AGENTS.md` files, and `AGENTS.d/*` policy files. Never push any such policy change.
 
 - If `skill://<name>` is unavailable and `agent-skills/<name>/SKILL.md` exists, read that project-owned source entrypoint for the current task and tell the user to install it with `npx skills add ./agent-skills --skill <name>`. Do not apply this fallback to external skills absent from `agent-skills/`.
