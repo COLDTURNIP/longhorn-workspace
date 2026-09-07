@@ -23,26 +23,16 @@ An automated validation tool to enforce the workspace-wide ASCII-only policy (0x
 ## Usage
 Execute from the workspace root. Uses defensive prelude: default dry-run; use `--execute` to run. Supports `--json-log`, `--no-color`, `--force` (unused), `--dry-run`.
 
-To maximize efficiency, **avoid scanning the entire repository**; target only specific files or staged changes.
+Select the changed files using the active harness tools and the target
+repository's VCS workflow. Avoid scanning the entire repository. The scanner
+accepts one file or directory per invocation; run it once for each selected
+file so additional paths are not silently skipped.
 
 ```bash
-# Repo subrepos (always git; subrepos under repo/ do not use jj):
-git -C "repo/<repo-name>" diff --diff-filter=ACM --name-only HEAD \
-  | grep -Ev '^(vendor/|generated/|dist/|zz_generated\.)' \
-  | xargs -r -I {} bash agent-skills/ascii-scanner/ascii_scanner.sh --execute "repo/<repo-name>/{}"
-
-# Workspace-root files (jj-first):
-if test -d .jj && command -v jj >/dev/null 2>&1; then
-  jj diff --summary | grep -v '^D ' | cut -d' ' -f2-
-else
-  git diff --diff-filter=ACM --name-only HEAD
-fi | xargs -r -I {} bash agent-skills/ascii-scanner/ascii_scanner.sh --execute "{}"
-
-# Non-repo paths (scan specific files directly, no VCS diff needed):
-bash agent-skills/ascii-scanner/ascii_scanner.sh --execute <file_path_1> <file_path_2>
+bash agent-skills/ascii-scanner/ascii_scanner.sh --execute <file_path>
 ```
 
 ## Expected Outcomes
 
-- **Success (Exit 0):** Confirms all files are ASCII compliant.
-- **Failure (Exit 1):** Returns a list of violations with file paths, line numbers, and the offending content.
+- **Exit 0:** The selected target passed, or a dry-run preview was shown. Only `--execute` performs the scan.
+- **Nonzero exit:** Read the diagnostic and resolve the reported violation or argument/environment error.
