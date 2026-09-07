@@ -36,10 +36,10 @@ Use `skill://ticket-sanitizer` for ticket-folder naming and normalization
 mechanics; keep those rules out of this router.
 
 Use `skill://support-bundle-analysis` for support-bundle diagnosis mechanics.
-When that skill is invoked under `ticket/*`, it MUST follow this file's
-`logs/extracted/<archive-name>/` location without asking the user to confirm
-the extraction location. Outside `ticket/*`, it MUST ask the user to confirm
-the extraction location.
+Under `ticket/*`, it MUST follow this file's
+`logs/extracted/<archive-name>/` location. Outside `ticket/*`, an explicit
+destination or an already extracted location is sufficient; ask only when
+neither is available.
 
 For architecture and code alignment, use `skill://repo-navigator` when locating
 code across repositories. Use `skill://interaction-mapper` for CRD, proto, or

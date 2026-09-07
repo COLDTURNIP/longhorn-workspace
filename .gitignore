@@ -2,14 +2,20 @@
 .env
 .tool-versions
 
+mise.toml
+.mise/*
+
 repo/*
 !repo/AGENTS.md
 !repo/repo-list.example.json
 ticket/*
 !ticket/AGENTS.md
-context/*
-!context/.placeholder
 docs/
+
+.tmp
+.idea
+.log
+__pycache__/
 
 # Canonical maintained sources
 !agent-skills/
@@ -17,18 +23,12 @@ docs/
 !scripts/
 !scripts/**
 
-.opencode/
+# AI agents
+plan-*.md
 .agents/
 skills-lock.json
-.sisyphus
-
-# Claude Code
+.codex
 .claude/*
 /CLAUDE.md
-
-# Pi
-.omp/*
 .pi/*
-
-# OpenSpec
-openspec
+.omp/*

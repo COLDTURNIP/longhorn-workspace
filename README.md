@@ -100,13 +100,14 @@ source, so rerun the same add command after source changes.
 
 ### Claude Code tip
 
-Claude Code support is optional and local. `CLAUDE.md` is an intentionally
-ignored, uncommitted compatibility symlink to the authoritative `AGENTS.md`.
-After cloning, create it with:
-
-```bash
-ln -s AGENTS.md CLAUDE.md
-```
+Claude Code v2.1.277 and later reads `AGENTS.md` natively, including the
+nested `repo/AGENTS.md`, `ticket/AGENTS.md`, and repository-level `AGENTS.md`
+files, so no `CLAUDE.md` is needed. Keep the workspace free of `CLAUDE.md` and
+`CLAUDE.local.md`: while either exists in the working directory or above it,
+Claude Code reads only `CLAUDE.md` files and skips every `AGENTS.md`. If an
+older clone still has the former `CLAUDE.md -> AGENTS.md` symlink, delete it.
+On a Claude Code version older than v2.1.277, upgrade instead of adding a
+compatibility file.
 
 Run the existing `npx skills add ./agent-skills` flow, selecting Claude Code
 and project scope for the skills you want. Maintained skill sources remain
