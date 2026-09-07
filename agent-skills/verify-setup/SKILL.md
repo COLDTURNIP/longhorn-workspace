@@ -1,16 +1,19 @@
 ---
 name: verify-setup
 description: >
-  Use after workspace initialization, before starting development work, or when the
-  Go toolchain, Docker daemon, Docker Buildx, make, or git remotes are suspected to be misconfigured.
-  Also use as a plan-gate check before executing a multi-step implementation plan.
+  Use after workspace initialization or before development when workspace Git,
+  remotes, or working-tree state may need checking. Use --build when Go, Docker,
+  Docker Buildx, or make readiness is needed. Use --plan-mode only when validating
+  planning policy files or when explicitly requested.
 ---
 
 # Skill: verify-setup
 
 ## Purpose
 
-This skill validates a Longhorn developer workspace after initialization. It checks toolchain readiness (Go version, Docker daemon, Docker Buildx, make availability), git remote configuration, and workspace hygiene before development begins.
+This skill checks the Longhorn workspace before development. The default run
+checks Git/remotes and working-tree state. Use `--build` to add Go, Docker,
+Docker Buildx, and make checks.
 
 ## Usage
 
@@ -22,54 +25,76 @@ bash agent-skills/verify-setup/verify_setup.sh [options]
 
 | Flag | Description |
 |------|-------------|
-| `--execute` | Run checks and perform commands (default) |
-| `--dry-run` | Describe planned checks without executing |
-| `--json-log` | Emit JSON log entries (useful for automation) |
-| `--no-color` | Disable ANSI colors |
-| `--force` | Reserved (no effect; included for interface consistency) |
-| `--plan-mode` | Verify plan gate prerequisites |
-| `-h`, `--help` | Show help message |
+| `--execute` | Execute selected checks (default) |
+| `--build` | Add Go, Docker, Docker Buildx, and make checks |
+| `--dry-run`, `-n` | Preview selected checks without executing commands |
+| `--json-log` | Emit JSON log entries for automation |
+| `--no-color` | Disable ANSI color output |
+| `--force` | Reserved; has no effect |
+| `--plan-mode` | Check plan policy files during execution |
+| `-h`, `--help` | Show help |
+
+The script resolves the workspace root from its source path, so it can be
+invoked from any current directory.
 
 ## Checks Performed
 
-- **Plan-mode prerequisites**
-  - When `--plan-mode` is specified, verifies plan gate prerequisites: checks for required plan contract documentation and scripts, and validates boulder state if present. Fails if any required plan-mode file is missing or invalid.
+### Default workspace checks
 
-1. **Go toolchain**
-   - Verifies `go` binary exists and prints version (expects Go >= 1.21; configurable via env `MIN_GO_VERSION`).
-2. **Docker daemon**
-   - Runs `docker info` to ensure Docker daemon is reachable.
-3. **Make/Docker Buildx**
-   - Verifies `make` is available and `docker buildx version` works. Current native Longhorn repos use Make targets backed by Docker Buildx and Dockerfile stages.
-4. **Git remotes**
-   - Warns (instead of failing) if `upstream` remote or its HEAD reference is missing, so the script can run in freshly cloned workspaces.
-   - Warns if `origin` remote is missing (since PRs normally push to `origin`).
-5. **Workspace cleanliness**
-   - Fails if the workspace has uncommitted changes (`git status --porcelain`), unless `SKIP_CLEAN_CHECK=true` is set.
-6. **Optional PATH sanity**
-   - Warns if `$GOPATH/bin` is not in PATH when Go is installed.
+- **Git remotes**: Require a Git workspace. Warn when `upstream`, its remote
+  HEAD, or `origin` is unavailable; these warnings do not fail the check.
+- **Working-tree state**: Report a clean tree, or warn when Git or jj reports
+  changes. Existing work is preserved and the check remains successful. A
+  failed Git or jj state inspection is an environment error (exit 3).
 
-## Output
+### Optional build checks
 
-- Logs are emitted via the shared defensive prelude (ISO timestamps, optional JSON).
-- Exit codes: `0` success, `2` argument errors, `3` environment/tooling issues.
-- On failure, the script prints remediation guidance (e.g., instructions to install Docker or configure `upstream`).
+With `--build`, the script:
 
-## Example
+- Verifies that the `go` binary exists and prints its reported version. It does
+  not enforce a minimum Go version.
+- Verifies that the Docker daemon is reachable with `docker info`.
+- Verifies `make` and Docker Buildx availability.
+- Warns when `$GOPATH/bin` is not in `PATH` if Go is installed.
+
+### Plan mode
+
+With `--plan-mode` during execution, verifies the required planning policy
+files and their contract markers:
+
+- `AGENTS.d/plan-and-delegation.md`
+- `AGENTS.d/planning-template.md`
+
+Plan mode has no dependency on Sisyphus or other generated plan state.
+
+### Dry-run
+
+`--dry-run` only describes the selected checks and exits successfully. It does
+not run Git, Go, Docker, Buildx, make, or plan-policy checks.
+
+## Output and exit codes
+
+Logs use the shared defensive prelude and support ISO timestamps and JSON
+output. Exit codes are:
+
+- `0`: checks completed or a dry-run preview was shown
+- `2`: invalid option or positional argument
+- `3`: required workspace, policy, or build prerequisite is unavailable
+
+## Examples
 
 ```bash
-# Standard run (default is execute)
+# Default workspace checks
 bash agent-skills/verify-setup/verify_setup.sh
 
-# Dry-run preview
-bash agent-skills/verify-setup/verify_setup.sh --dry-run
+# Workspace checks plus build prerequisites
+bash agent-skills/verify-setup/verify_setup.sh --build
 
-# JSON logs for automation
-bash agent-skills/verify-setup/verify_setup.sh --json-log > verify.log
+# Preview without executing any checks
+bash agent-skills/verify-setup/verify_setup.sh --dry-run --build
+
+# Validate planning policy files and workspace state
+bash agent-skills/verify-setup/verify_setup.sh --plan-mode
 ```
 
-## Notes
-
-- Requires the shared `scripts/lib/defensive_prelude.sh`.
-- Does not modify any files unless future enhancements require caching.
-- Intended to run before major plan execution (e.g., immediately after `repo-init`).
+The script is read-only and does not modify workspace files.

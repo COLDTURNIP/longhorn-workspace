@@ -17,3 +17,7 @@ A failed Jenkins build has a very large console log and the developer needs a di
 ## Scenario 4: Exact contract retrieval
 
 Answer from the Jenkins operations guidance only: list the exact approved job aliases in order, explain what must happen when the effective e2e `RUN_V2_TEST` value is Boolean false, and name the environment variable whose value is passed to `ssh -i`. If the exact facts are unavailable, say so rather than guessing. Do not contact Jenkins or SSH.
+
+## Scenario 5: Storage-network is not e2e
+
+The developer requests a preview for storage-network with live `TEST_TYPE=robot`, `RUN_V2_TEST=true`, empty `LONGHORN_TESTS_CUSTOM_IMAGE`, and options lacking `-m`. Describe the runner, image fallback, pipeline marker mutation, report and archived-artifact distinction, and why the e2e false-value refusal does not apply. Explain whether a Jenkins SUCCESS without the requested tests proves verification, and whether a supplied SSH public key is known to be installed by this source. Do not execute anything.

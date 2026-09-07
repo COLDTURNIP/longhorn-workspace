@@ -198,7 +198,7 @@ validate_queue_executable() {
 # is used to construct a later request.
 resolve_executable() {
   local executable_url=$1 build_number=$2 candidate expected candidate_rc
-  for candidate in regression e2e benchmark; do
+  for candidate in regression e2e benchmark storage-network; do
     candidate_rc=0
     if build_job_url "$candidate"; then
       candidate_rc=0
@@ -227,7 +227,7 @@ resolve_executable() {
 recover_expired_queue() {
   local candidate candidate_file candidate_count candidate_build total_matches request_rc
   total_matches=0
-  for candidate in regression e2e benchmark; do
+  for candidate in regression e2e benchmark storage-network; do
     candidate_file="$PRIVATE_DIR/recent-${candidate}.json"
     build_job_url "$candidate" || return "$EXIT_JENKINS"
     request_rc=0

@@ -342,6 +342,32 @@ if [ "$JOB_ALIAS_ARG" = e2e ]; then
   fi
 fi
 
+# Storage-network has its own runner switch and marker mutation. Describe the
+# checked-in pipeline's effective behavior without changing the submitted form.
+if [ "$JOB_ALIAS_ARG" = storage-network ]; then
+  STORAGE_PLAN="$PRIVATE_DIR/storage-launch-plan.json"
+  if ! jq -S --arg pipeline "$JOB_PIPELINE" '
+    def value($name): [.parameters[] | select(.name == $name) | .value][0];
+    (value("TEST_TYPE") // "pytest") as $raw_type
+    | (if $raw_type == "" or $raw_type == false then "pytest" else $raw_type end) as $test_type
+    | ($test_type == "robot") as $robot
+    | (value("CUSTOM_TEST_OPTIONS") // "") as $options
+    | ((value("RUN_V2_TEST") == true) and ($options | contains("-m") | not)) as $append_marker
+    | (value("LONGHORN_TESTS_CUSTOM_IMAGE") // "") as $image
+    | . + {execution:{pipeline:$pipeline, testType:$test_type,
+        runner:(if $robot then "Robot Framework" else "PyTest" end),
+        testSource:"external image: LONGHORN_TESTS_CUSTOM_IMAGE",
+        testImage:(if $image != "" then $image elif $robot then "longhornio/longhorn-e2e-test:master-head" else "longhornio/longhorn-manager-test:master-head" end),
+        customTestOptions:($options + (if $append_marker then " -m v2_volume_test" else "" end))}}
+    | if $append_marker then .warnings += ["Storage-network appends -m v2_volume_test when RUN_V2_TEST=true and CUSTOM_TEST_OPTIONS lacks the substring -m, including Robot mode."] else . end
+  ' "$LAUNCH_PLAN" > "$STORAGE_PLAN" 2>/dev/null; then
+    _jenkins_error 'Unable to describe the storage-network launch'
+    exit "$EXIT_ARG"
+  fi
+  chmod 600 "$STORAGE_PLAN"
+  mv "$STORAGE_PLAN" "$LAUNCH_PLAN"
+fi
+
 if [ "$DRY_RUN" = true ]; then
   printf '%s\n' "$LAUNCH_PLAN"
   exit "$EXIT_OK"

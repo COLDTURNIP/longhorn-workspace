@@ -1,12 +1,15 @@
 # Planning Template
 
-Copy one step block for each independently verifiable outcome. Contract rules live in `AGENTS.d/plan-and-delegation.md`.
+Copy one five-field step block for each substantial implementation or handoff
+outcome. Read-only investigation may instead name its tool-based verification,
+but must retain a checkable outcome, ownership, evidence, and done criteria.
+Contract rules live in `AGENTS.d/plan-and-delegation.md`.
 
 ## Step
 
-- Action: <outcome to produce>
+- Action: <outcome to produce; name the owning worker when delegated>
 - Target: <explicit modification allowlist>
-- Verify Command: <copy-paste-ready verification command>
+- Verify Command: <copy-paste-ready command, valid heredoc, or read-only tool lookup>
 - Evidence Path: <changed target, artifact, log, or stdout/stderr>
 - Done Criteria: <observable target state and verification result>
 
@@ -14,6 +17,6 @@ Copy one step block for each independently verifiable outcome. Contract rules li
 
 - Action: Align the planning template with the authoritative step contract
 - Target: `AGENTS.d/planning-template.md`
-- Verify Command: `python3 -c "from pathlib import Path; lines = [line for line in Path('AGENTS.d/planning-template.md').read_text().splitlines() if line.startswith('- ')]; fields = ('Action', 'Target', 'Verify Command', 'Evidence Path', 'Done Criteria'); assert tuple(line[2:].split(':', 1)[0] for line in lines) == fields * 2"`
-- Evidence Path: stdout/stderr
-- Done Criteria: The template and example each contain all five fields in authoritative order, and the verification command exits 0
+- Verify Command: Use the read tool on `AGENTS.d/planning-template.md` and compare each step block with `AGENTS.d/plan-and-delegation.md`.
+- Evidence Path: The two read-tool outputs.
+- Done Criteria: The template and example each contain all five fields in authoritative order, with a checkable outcome and evidence.

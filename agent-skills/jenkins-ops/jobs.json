@@ -62,6 +62,31 @@
       ],
       "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE",
       "warnings": {}
+    },
+    "storage-network": {
+      "pipeline": "repo/longhorn-tests/pipelines/storage_network/Jenkinsfile",
+      "reviewParameters": [
+        "TEST_TYPE",
+        "RUN_V2_TEST",
+        "LONGHORN_TESTS_CUSTOM_IMAGE",
+        "CUSTOM_TEST_OPTIONS",
+        "LONGHORN_REPO_URI",
+        "LONGHORN_REPO_BRANCH",
+        "CUSTOM_LONGHORN_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_ENGINE_IMAGE",
+        "CUSTOM_LONGHORN_INSTANCE_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_SHARE_MANAGER_IMAGE",
+        "CUSTOM_LONGHORN_BACKING_IMAGE_MANAGER_IMAGE",
+        "SEND_SLACK_NOTIFICATION",
+        "NOTIFY_SLACK_CHANNEL"
+      ],
+      "runner": "PyTest or Robot Framework (TEST_TYPE)",
+      "segments": [
+        "private",
+        "longhorn-storage-network-test"
+      ],
+      "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE (runner-specific fallback when empty)",
+      "warnings": {}
     }
   },
   "version": 1

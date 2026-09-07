@@ -23,43 +23,51 @@ while [ ! -f "$WORKSPACE_ROOT/AGENTS.md" ] || [ ! -d "$WORKSPACE_ROOT/agent-skil
   WORKSPACE_ROOT=$PARENT_DIR
 done
 cd "$WORKSPACE_ROOT"
+# Workspace checks execute by default; --dry-run switches to preview mode.
+DRY_RUN=${DRY_RUN:-false}
 source "$WORKSPACE_ROOT/scripts/lib/defensive_prelude.sh"
 
-# Support a local --plan-mode flag without changing defensive_prelude parsing
+BUILD_CHECKS=false
 PLAN_MODE=false
-plan_mode_args=()
+custom_args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --)
+      custom_args+=("$@")
+      break
+      ;;
+    --build)
+      BUILD_CHECKS=true
+      ;;
     --plan-mode)
       PLAN_MODE=true
-      shift
       ;;
     *)
-      plan_mode_args+=("$1")
-      shift
+      custom_args+=("$1")
       ;;
   esac
+  shift
 done
-set -- "${plan_mode_args[@]:-}"
 
 usage() {
 cat <<USAGE
 Usage: $SCRIPT_NAME [options]
 
-Validate Longhorn workspace prerequisites (Go, Docker, Docker Buildx, make, git remotes, clean tree).
+Check workspace Git/remotes and working-tree state. Use --build for toolchain checks.
 
 Options:
-  --execute           Run all checks (default)
-  --dry-run           Describe checks without executing
+  --execute           Run selected checks (default)
+  --build             Also check Go, Docker, Docker Buildx, and make
+  --dry-run, -n       Preview selected checks without executing commands
   --json-log          Emit JSON-formatted log lines
   --no-color          Disable ANSI color output (not used)
   --force             Reserved (no effect)
-  --plan-mode         Also verify plan-mode prerequisites
+  --plan-mode         Check plan policy files during execution
   -h, --help          Show this help
 USAGE
 }
 
-defensive_parse_args "$@"
+defensive_parse_args "${custom_args[@]}"
 
 if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   error "verify-setup does not accept positional arguments"
@@ -67,60 +75,51 @@ if [ "${#DEFENSIVE_POSITIONAL_ARGS[@]}" -gt 0 ]; then
   exit "$EXIT_ARG"
 fi
 
-if [ "$DRY_RUN" = true ] && [ "$PLAN_MODE" != true ]; then
-  info "Dry-run: Would check Go, Docker, Docker Buildx, make, git remotes, clean tree"
+if [ "$DRY_RUN" = true ]; then
+  if [ "$BUILD_CHECKS" = true ]; then
+    info "Dry-run: Would check workspace Git/remotes and working-tree state, plus Go, Docker, Docker Buildx, and make"
+  else
+    info "Dry-run: Would check workspace Git/remotes and working-tree state"
+  fi
+  if [ "$PLAN_MODE" = true ]; then
+    info "Dry-run: Would check plan policy files"
+  fi
   exit "$EXIT_OK"
 fi
 
-# When plan-mode is enabled, run lightweight plan-mode prereqs (non-fatal warnings)
+# Plan policy checks run only for an executing plan-mode invocation.
 check_plan_mode_prerequisites() {
-  # Only act if plan-mode enabled
   if [ "$PLAN_MODE" != true ]; then
     return
   fi
 
-  # Verify plan-mode prerequisites (fatal if missing)
-  local plan_doc="AGENTS.d/plan-and-delegation.md"
-
-  if [ ! -f "$plan_doc" ]; then
-    die "plan-mode requires $plan_doc"
-  fi
-  if ! grep -q "Plan Step Contract" "$plan_doc" 2>/dev/null; then
-    die "plan-mode check failed: missing Plan Step Contract marker in $plan_doc"
-  fi
-  # If boulder state exists, inspect active_plan and warn if it references a missing file
-  local bfile=".sisyphus/boulder.json"
-  if [ ! -f "$bfile" ]; then
-    return
-  fi
-
-  # Extract the active_plan value from the JSON file (simple sed-based parse)
-  local active
-  active=$(sed -n 's/.*"active_plan"[[:space:]]*:[[:space:]]*"\([^" ]*\)".*/\1/p' "$bfile" || true)
-  if [ -n "$active" ]; then
-    if [ ! -f "$active" ]; then
-      warn ".sisyphus/boulder.json active_plan points to missing file: $active"
+  local plan_doc
+  local plan_docs=(
+    "AGENTS.d/plan-and-delegation.md"
+    "AGENTS.d/planning-template.md"
+  )
+  for plan_doc in "${plan_docs[@]}"; do
+    if [ ! -f "$plan_doc" ]; then
+      die "plan-mode requires $plan_doc"
     fi
+  done
+  if ! grep -q "Plan Step Contract" "${plan_docs[0]}" 2>/dev/null; then
+    die "plan-mode check failed: missing Plan Step Contract marker in ${plan_docs[0]}"
+  fi
+  if ! grep -q "Action:" "${plan_docs[1]}" 2>/dev/null; then
+    die "plan-mode check failed: missing Action field in ${plan_docs[1]}"
   fi
 }
 
 check_plan_mode_prerequisites
 
-# If running in dry-run after executing plan-mode prereqs, exit early to avoid
-# performing environment checks that may fail in CI/local without required tools.
-if [ "$DRY_RUN" = true ]; then
-  info "Dry-run (plan-mode): performed plan-mode prereqs"
-  exit "$EXIT_OK"
-fi
-
-MIN_GO_VERSION=${MIN_GO_VERSION:-1.21}
-
 check_go() {
   if ! command -v go >/dev/null 2>&1; then
-    die "Go binary not found. Install Go >= $MIN_GO_VERSION"
+    die "Go binary not found. Install Go before using --build"
   fi
-  VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-  info "Go version: $VERSION"
+  local version
+  version=$(go version | awk '{print $3}' | sed 's/go//')
+  info "Go version: $version"
 }
 
 check_docker() {
@@ -165,19 +164,24 @@ check_git_remotes() {
 }
 
 check_clean_tree() {
-  if [ "${SKIP_CLEAN_CHECK:-false}" = true ]; then
-    warn "Skipping clean tree check due to SKIP_CLEAN_CHECK=true"
-    return
-  fi
   # jj-first: in a jj repo the working copy is always a live change;
-  # treat it as dirty only when jj diff reports actual content.
+  # report content changes without modifying user file content.
+  local status_output
   if test -d .jj && command -v jj >/dev/null 2>&1; then
-    if [ -n "$(jj diff --summary 2>/dev/null)" ]; then
-      die "Working change has content; complete or abandon before proceeding (jj diff)"
+    if ! status_output=$(jj diff --summary 2>/dev/null); then
+      die "Unable to inspect jj working change"
+    fi
+    if [ -n "$status_output" ]; then
+      warn "Working change has content; preserving user file content (jj diff)"
+      return
     fi
   else
-    if [ -n "$(git status --porcelain)" ]; then
-      die "Working tree dirty; stash/commit changes before proceeding"
+    if ! status_output=$(git status --porcelain 2>/dev/null); then
+      die "Unable to inspect Git working tree"
+    fi
+    if [ -n "$status_output" ]; then
+      warn "Working tree has uncommitted changes; preserving user file content"
+      return
     fi
   fi
   info "Working tree clean"
@@ -193,11 +197,14 @@ check_path() {
   fi
 }
 
-check_go
-check_docker
-check_make_and_buildx
 check_git_remotes
 check_clean_tree
-check_path
+
+if [ "$BUILD_CHECKS" = true ]; then
+  check_go
+  check_docker
+  check_make_and_buildx
+  check_path
+fi
 
 info "[SUCCESS] verify-setup completed"

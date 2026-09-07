@@ -23,12 +23,26 @@ Use only `agent-skills/jenkins-ops/scripts/` for Jenkins HTTP operations and job
 | `regression` | `private/longhorn-tests-regression` | `repo/longhorn-tests/test_framework/Jenkinsfile` | PyTest runs from `LONGHORN_TESTS_CUSTOM_IMAGE`; checkout and test-image revisions may differ. |
 | `e2e` | `private/longhorn-e2e-test` | `repo/longhorn-tests/pipelines/e2e/Jenkinsfile` | Robot Framework runs from `LONGHORN_TESTS_CUSTOM_IMAGE`; checkout and test-image revisions may differ. |
 | `benchmark` | `private/longhorn-benchmark-test` | `repo/longhorn-tests/benchmark_test/Jenkinsfile` | The setup uses the checkout and checked-in kbench manifests; no structured report or archived artifact is published. |
+| `storage-network` | `private/longhorn-storage-network-test` | `repo/longhorn-tests/pipelines/storage_network/Jenkinsfile` | PyTest or Robot Framework selected by live `TEST_TYPE`; external test image and checkout revisions may differ. |
 
-The aliases are exhaustive and ordered: `regression`, `e2e`, `benchmark`.
+The aliases are exhaustive and ordered: `regression`, `e2e`, `benchmark`, `storage-network`.
 
 The e2e pipeline coerces effective `RUN_V2_TEST=false` to true. The wrapper rejects an explicit false override or an omitted live false default with exit 2:
 
 `Current pipelines/e2e/Jenkinsfile coerces RUN_V2_TEST=false to true; this wrapper refuses that effective value.`
+
+## Storage-network Runner Review
+
+Use `storage-network` for this job, not `e2e`. Fetch live metadata before previewing; `jobs.json` is descriptive, not a parameter schema. The storage-network launch plan adds `execution` with the pipeline, effective test type, runner, image, and transported options after pipeline marker handling. Read it privately alongside the normal parameter `source` fields.
+
+- Only exact `TEST_TYPE=robot` selects Robot; absent or empty falls back to `pytest`, and other nonempty values follow the PyTest branch. Validate caller choices against live metadata, not this source fallback.
+- Both branches run tests from `LONGHORN_TESTS_CUSTOM_IMAGE`, not the Jenkins checkout. Empty images fall back to `longhornio/longhorn-manager-test:master-head` for PyTest or `longhornio/longhorn-e2e-test:master-head` for Robot. The checkout supplies setup scripts and pod manifests.
+- The PyTest utility splits `CUSTOM_TEST_OPTIONS` using `xargs -n1`; the Robot utility evaluates an argument array. Use runner-appropriate selectors and the wrapper's raw-double-quote contract. Options in `execution` are transport-encoded, not a command to execute locally.
+- Storage-network preserves `RUN_V2_TEST=false`. When true and options lack the substring `-m`, its Jenkinsfile appends ` -m v2_volume_test`, even in Robot mode. Review the warning and provide appropriate explicit options; the wrapper describes this mutation without adding it to the POST form. Do not apply the e2e false-value refusal here.
+- PyTest publishes JUnit; Robot publishes the Robot action's reports. `inspect_build.sh` discovers available reports from endpoints and actions, not a guessed runner. The pipeline archives support-bundle ZIPs, not the copied XML/HTML reports; select downloads only from `artifacts.json`. Missing reports or skipped target tests are not verification success.
+- The current source generates its own node SSH key and does not wire `CUSTOM_SSH_PUBLIC_KEY`. Live metadata still governs fallback injection. Host resolution does not prove the configured identity can authenticate; do not assume a supplied public key was installed.
+
+Source references: `repo/longhorn-tests/pipelines/storage_network/scripts/longhorn-setup.sh`, `repo/longhorn-tests/pipelines/utilities/run_longhorn_test.sh`, and `repo/longhorn-tests/pipelines/utilities/run_longhorn_e2e_test.sh`.
 
 ## Environment and Managed Overrides
 
@@ -142,7 +156,7 @@ Never paste a complete console log.
 ## Persistent Investigation Workspace
 
 Create no ticket for routine operations. When the user requests persistent troubleshooting, use:
-The required schema is `ticket/jenkins_<alias>-<build-number>-job/`, where the alias is `regression`, `e2e`, or `benchmark`.
+The required schema is `ticket/jenkins_<alias>-<build-number>-job/`, where the alias is `regression`, `e2e`, `benchmark`, or `storage-network`.
 
 
 ```text

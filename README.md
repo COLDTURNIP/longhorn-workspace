@@ -214,9 +214,10 @@ These scripts are direct workspace tools:
   - Example: "map the interactions between components"
 - **repo-navigator**: Navigate and search across multiple repositories.
   - Example: "find the VolumeController implementation"
-- **verify-setup**: Verify local workspace and toolchain readiness before
-  implementation.
-  - Example: "verify the workspace prerequisites"
+- **verify-setup**: Check workspace prerequisites after initialization or when
+  they change. Existing work is preserved; add `--build` when Go, Docker,
+  Docker Buildx, and make readiness is required.
+  - Example: `bash agent-skills/verify-setup/verify_setup.sh --build`
 
 #### Build, API, and Integration Workflows
 

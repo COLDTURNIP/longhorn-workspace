@@ -15,44 +15,39 @@ metadata:
 
 ## Pre-Analysis Requirements (MANDATORY)
 
-<mandatory_requirements>
+Resolve the extraction location before starting Phase 0:
 
-<step_1>
-<requirement>Bundle Extraction Location</requirement>
-<ticket_scope>
-If analysis is under `ticket/*`, read `ticket/AGENTS.md` and follow its authoritative per-archive rule. Extract each archive to `logs/extracted/[archive_name_no_ext]/`; if it is already there, use that directory. Do not ask the user to confirm this location.
-</ticket_scope>
-<outside_ticket_scope>
-If analysis is outside `ticket/*`, ask the user to confirm where to extract the support bundle:
-- Temporary (recommended): /tmp/sb-analysis-TIMESTAMP
-- Custom path: [provide path]
-- Already extracted: [provide path]
-</outside_ticket_scope>
-</step_1>
+- **Under `ticket/*`**: Read `ticket/AGENTS.md` and follow its per-archive rule.
+  Extract each archive to `logs/extracted/<archive-name-without-extension>/`.
+  Reuse that directory when it already exists. Keep archives isolated; never
+  merge bundles or place extracted contents directly in `logs/`.
+- **Outside `ticket/*`**: Use an explicit destination supplied by the user when
+  it resolves as an absolute or workspace-relative path. Use a supplied
+  already-extracted directory when it exists. Ask for a location only when no
+  destination or extracted directory is specified, or the supplied path cannot
+  be resolved.
 
-<step_2>
-<requirement>Problem Description (CRITICAL)</requirement>
-<critical>Problem-driven analysis is CORE. A usable problem description is mandatory.</critical>
-<ticket_scope>
-If analysis is under `ticket/*` and `description.md` exists, read and use it as the problem description. Ask the user only if it is absent or insufficient.
-</ticket_scope>
-<outside_ticket_scope>
-If analysis is outside `ticket/*`, use a problem description already supplied by the user when it is sufficient; if not, ask the user to provide one.
-</outside_ticket_scope>
-<ask_user_when_needed>
-Use this prompt only when the applicable description source is absent or insufficient:
+Require a usable problem description before diagnosis:
+
+- Under `ticket/*`, read `description.md` when present and ask only when it is
+  absent or insufficient.
+- Outside `ticket/*`, use the user's supplied description when sufficient; ask
+  otherwise.
+- Capture the issue or error, affected components or resources, symptoms, and
+  relevant timestamps when known.
+
+When a description is missing or insufficient, ask:
+
+```text
 Describe the problem:
 - What issue/error are you experiencing?
 - Which components are affected? (Pod/Node/Storage/Network)
 - What symptoms are present?
 - What relevant timestamps or events are known?
-</ask_user_when_needed>
-<failure_mode>Do not proceed to diagnosis without a usable problem description.</failure_mode>
-</step_2>
+```
 
-</mandatory_requirements>
-
-<decision_gate>Proceed to Phase 0 only after the applicable extraction-location branch is resolved and a usable problem description is available.</decision_gate>
+Proceed to Phase 0 only after the extraction location is resolved and a usable
+problem description is available.
 
 ---
 
@@ -101,27 +96,13 @@ Priority files by problem type:
 | **@diagnostic-flows.md** | Phase 2-3 | Quick Assessment, Deep Diagnosis, Commands Toolbox |
 | **@patterns-library.md** | Phase 4 | Timeline, 5 Whys, Error Patterns, Examples |
 
-### Decision Tree
-
-```
-START
-  -> [Scope] Under `ticket/*`: read `ticket/AGENTS.md` and use `logs/extracted/[archive_name_no_ext]/`
-             Outside `ticket/*`: ask the user to confirm the extraction location
-  -> [Description] Under `ticket/*`: read `description.md` when present; ask only if absent or insufficient
-                  Outside `ticket/*`: use supplied details; ask only if absent or insufficient
-  -> [Phase 0] Classify -> [Phase 1] Structure
-  -> [Phase 2-3] READ @diagnostic-flows.md
-  -> [Phase 4] READ @patterns-library.md -> END
-```
-
 ### Quick Links
 
-**Diagnosis**: @diagnostic-flows.md#pod-diagnosis | #node-diagnosis | #storage-diagnosis | #network-diagnosis  
-**Patterns**: @patterns-library.md#patterns-library | #examples | #quick-reference  
+**Diagnosis**: @diagnostic-flows.md#pod-diagnosis | #node-diagnosis | #storage-diagnosis | #network-diagnosis
+**Patterns**: @patterns-library.md#patterns-library | #examples | #quick-reference
 **Methods**: @patterns-library.md#timeline-reconstruction | #5-whys-method | #evidence-based-analysis
 
 <when_to_read>
 <diagnostic_flows>Phase 2-3: Deep diagnosis needed</diagnostic_flows>
 <patterns_library>Phase 4: Root cause analysis or pattern reference needed</patterns_library>
 </when_to_read>
-

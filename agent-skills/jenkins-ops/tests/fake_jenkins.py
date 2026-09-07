@@ -30,6 +30,12 @@ CATALOG = {
         "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE",
         "runner": "Robot Framework",
     },
+    "storage-network": {
+        "name": "longhorn-storage-network-test",
+        "pipeline": "repo/longhorn-tests/pipelines/storage_network/Jenkinsfile",
+        "testSource": "external image: LONGHORN_TESTS_CUSTOM_IMAGE (runner-specific fallback when empty)",
+        "runner": "PyTest or Robot Framework (TEST_TYPE)",
+    },
     "benchmark": {
         "name": "longhorn-benchmark-test",
         "pipeline": "repo/longhorn-tests/benchmark_test/Jenkinsfile",
@@ -65,6 +71,16 @@ SCENARIO_ALIASES = {
 }
 
 SCENARIOS = {
+    "storage-robot",
+    "storage-empty",
+    "storage-missing-type",
+    "storage-other-type",
+    "storage-queue",
+    "storage-expired",
+    "storage-ambiguous",
+    "queue-forbidden",
+    "storage-pytest-report",
+    "storage-robot-report",
     "normal",
     "raw-types",
     "required-space",
@@ -201,6 +217,33 @@ def _definitions(alias, mode):
             "defaultParameterValue": {"value": default},
         }
         common.append(e2e_bool)
+    if alias == "storage-network":
+        # The checked-in storage-network pipeline does not consume
+        # CUSTOM_SSH_PUBLIC_KEY. Live metadata remains authoritative.
+        common.append({
+            "name": "RUN_V2_TEST",
+            "type": "BooleanParameterDefinition",
+            "description": "Run v2 tests",
+            "defaultParameterValue": {"value": False},
+        })
+        if mode != "storage-missing-type":
+            test_type = "robot" if mode == "storage-robot" else "pytest"
+            definition = {
+                "name": "TEST_TYPE",
+                "type": "ChoiceParameterDefinition",
+                "description": "Test runner",
+                "defaultParameterValue": {"value": test_type},
+                "choices": ["pytest", "robot"],
+            }
+            if mode in {"storage-empty", "storage-other-type"}:
+                definition["type"] = "StringParameterDefinition"
+                definition.pop("choices")
+                definition["defaultParameterValue"]["value"] = (
+                    "" if mode == "storage-empty" else "future-runner"
+                )
+            common.append(definition)
+        if mode in {"storage-empty", "storage-robot"}:
+            next(item for item in common if item["name"] == "LONGHORN_TESTS_CUSTOM_IMAGE")["defaultParameterValue"]["value"] = ""
     if alias == "benchmark":
         common.extend(
             [
@@ -556,7 +599,8 @@ class Handler(BaseHTTPRequestHandler):
                 return True
         if split.query.startswith("tree=builds["):
             builds = []
-            if alias == "regression" and scenario != "queue-expired-not-found":
+            correlation_alias = "storage-network" if scenario in {"storage-expired", "storage-ambiguous"} else "regression"
+            if (alias == correlation_alias or (scenario == "storage-ambiguous" and alias == "regression")) and scenario != "queue-expired-not-found":
                 builds = [
                     {
                         "building": False,
@@ -595,7 +639,7 @@ class Handler(BaseHTTPRequestHandler):
         if scenario in {"http-404", "notfound404"}:
             self._json({}, status=404, split=split)
             return True
-        if scenario in {"queue-expired-recover", "queue-expired-not-found"}:
+        if scenario in {"queue-expired-recover", "queue-expired-not-found", "storage-expired", "storage-ambiguous"}:
             self._json({}, status=404, split=split)
             return True
         if scenario == "wait-hang":
@@ -631,7 +675,11 @@ class Handler(BaseHTTPRequestHandler):
                 "cancelled": False,
                 "executable": {
                     "number": 7,
-                    "url": self._build_url("longhorn-tests-regression", 7),
+                    "url": self._build_url(
+                        "longhorn-e2e-test-pull-request-check" if scenario == "queue-forbidden"
+                        else "longhorn-storage-network-test" if scenario == "storage-queue"
+                        else "longhorn-tests-regression", 7
+                    ),
                 },
             },
             split=split,
@@ -687,7 +735,7 @@ class Handler(BaseHTTPRequestHandler):
                     ],
                 }
             ]
-            if scenario in {"reports-artifacts", "reports", "artifacts"}:
+            if scenario in {"reports-artifacts", "reports", "artifacts", "storage-robot-report"}:
                 actions.append(
                     {
                         "_class": "hudson.plugins.robot.RobotBuildAction",
@@ -696,6 +744,9 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 )
             artifacts = []
+            if scenario in {"storage-pytest-report", "storage-robot-report"}:
+                actions[0]["parameters"] = [{"name": "TEST_TYPE", "value": "robot" if scenario == "storage-robot-report" else "pytest"}]
+                artifacts = [{"fileName": "fixture-bundle.zip", "relativePath": "fixture-bundle.zip"}]
             if scenario in {"reports-artifacts", "reports", "artifacts"}:
                 artifacts = [
                     {"fileName": "test-report.json", "relativePath": "reports/test-report.json"},
@@ -735,7 +786,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, body, {"Content-Type": "text/plain; charset=utf-8"}, split=split)
             return True
         if suffix == "testReport/api/json":
-            if scenario in {"reports-missing"}:
+            if scenario in {"reports-missing", "storage-robot-report"}:
                 self._json({}, status=404, split=split)
             else:
                 self._json(
@@ -746,7 +797,7 @@ class Handler(BaseHTTPRequestHandler):
         if suffix == "robot/api/json":
             if scenario in {"reports-missing"}:
                 self._json({}, status=404, split=split)
-            elif scenario in {"reports-artifacts", "reports", "artifacts"}:
+            elif scenario in {"reports-artifacts", "reports", "artifacts", "storage-robot-report"}:
                 self._json({"statistics": {"total": 1, "passed": 1, "failed": 0}, "generated": True}, split=split)
             else:
                 self._json({}, status=404, split=split)
@@ -755,9 +806,11 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if suffix.startswith("artifact/"):
             relative = unquote(suffix[len("artifact/") :])
-            allowed = {"reports/test-report.json", "logs/console.txt", "artifacts/results.xml"}
+            allowed = {"fixture-bundle.zip"} if scenario in {"storage-pytest-report", "storage-robot-report"} else {"reports/test-report.json", "logs/console.txt", "artifacts/results.xml"}
             if relative not in allowed:
                 self._send(404, b"Not found\n", split=split)
+            elif relative == "fixture-bundle.zip":
+                self._send(200, b"offline bundle fixture\n", {"Content-Type": "application/zip"}, split=split)
             elif relative == "reports/test-report.json":
                 self._send(200, _json_bytes({"fake": True, "result": "SUCCESS"}), {"Content-Type": "application/json"}, split=split)
             elif relative == "artifacts/results.xml":

@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/jenkins_common.sh"
 require_command jq
 
 jq -cS '
-  ["regression", "e2e", "benchmark"] as $aliases
+  ["regression", "e2e", "benchmark", "storage-network"] as $aliases
   | {
       jobs: [
         $aliases[] as $alias

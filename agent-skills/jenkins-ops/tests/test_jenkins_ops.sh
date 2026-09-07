@@ -340,12 +340,12 @@ read_mode() {
 
     run_capture "$SKILL_DIR/scripts/list_jobs.sh"
     assert_status 0 "list jobs" || return 1
-    assert_json_stdout '(. | keys) == ["jobs"] and (.jobs | length) == 3 and [.jobs[].alias] == ["regression","e2e","benchmark"] and all(.jobs[]; (.path|type)=="string" and (.pipeline|type)=="string" and (.testSource|type)=="string" and (.runner|type)=="string") and .jobs[0].path=="private/longhorn-tests-regression" and .jobs[0].pipeline=="repo/longhorn-tests/test_framework/Jenkinsfile" and .jobs[0].testSource=="external image: LONGHORN_TESTS_CUSTOM_IMAGE" and .jobs[0].runner=="PyTest" and .jobs[1].path=="private/longhorn-e2e-test" and .jobs[1].pipeline=="repo/longhorn-tests/pipelines/e2e/Jenkinsfile" and .jobs[1].testSource=="external image: LONGHORN_TESTS_CUSTOM_IMAGE" and .jobs[1].runner=="Robot Framework" and .jobs[2].path=="private/longhorn-benchmark-test" and .jobs[2].pipeline=="repo/longhorn-tests/benchmark_test/Jenkinsfile" and .jobs[2].testSource=="checkout: benchmark_test scripts and manifests" and .jobs[2].runner=="kbench"' "list jobs" || return 1
+    assert_json_stdout '(. | keys) == ["jobs"] and (.jobs | length) == 4 and [.jobs[].alias] == ["regression","e2e","benchmark","storage-network"] and all(.jobs[]; (.path|type)=="string" and (.pipeline|type)=="string" and (.testSource|type)=="string" and (.runner|type)=="string") and .jobs[0].path=="private/longhorn-tests-regression" and .jobs[0].pipeline=="repo/longhorn-tests/test_framework/Jenkinsfile" and .jobs[0].testSource=="external image: LONGHORN_TESTS_CUSTOM_IMAGE" and .jobs[0].runner=="PyTest" and .jobs[1].path=="private/longhorn-e2e-test" and .jobs[1].pipeline=="repo/longhorn-tests/pipelines/e2e/Jenkinsfile" and .jobs[1].testSource=="external image: LONGHORN_TESTS_CUSTOM_IMAGE" and .jobs[1].runner=="Robot Framework" and .jobs[2].path=="private/longhorn-benchmark-test" and .jobs[2].pipeline=="repo/longhorn-tests/benchmark_test/Jenkinsfile" and .jobs[2].testSource=="checkout: benchmark_test scripts and manifests" and .jobs[2].runner=="kbench" and .jobs[3].path=="private/longhorn-storage-network-test" and .jobs[3].pipeline=="repo/longhorn-tests/pipelines/storage_network/Jenkinsfile" and .jobs[3].testSource=="external image: LONGHORN_TESTS_CUSTOM_IMAGE (runner-specific fallback when empty)" and .jobs[3].runner=="PyTest or Robot Framework (TEST_TYPE)"' "list jobs" || return 1
     assert_output_absent dummy-token "list jobs output" || return 1
     assert_output_absent "$JENKINS_URL" "list jobs output" || return 1
     assert_output_absent longhorn-e2e-test-pull-request-check "excluded job output" || return 1
 
-    for script in regression e2e benchmark; do
+    for script in regression e2e benchmark storage-network; do
         run_capture "$SKILL_DIR/scripts/get_job_parameters.sh" "$script"
         assert_status 0 "get parameters $script" || return 1
         path=$(assert_private_path "get parameters $script") || return 1
@@ -839,6 +839,7 @@ trigger_mode() {
     done
     count=$(jq -s '[.[] | select(.method=="POST")] | length' "$FIXTURE_LOG")
     [ "$count" -eq 1 ] || { fail "POST was retried"; return 1; }
+    storage_trigger_contracts || return $?
     pass "trigger contracts"
     return 0
 }
@@ -933,6 +934,7 @@ monitor_mode() {
     run_capture "$SKILL_DIR/scripts/wait_for_build.sh" 101 20
     assert_status 6 "completed build failure" || return 1
     assert_json_stdout '.job=="regression" and .build==7 and .result=="FAILURE"' "completed failure result" || return 1
+    storage_monitor_contracts || return $?
     pass "monitor contracts"
     return 0
 }
@@ -1147,6 +1149,7 @@ inspect_ssh_mode() {
     run_capture "$SKILL_DIR/scripts/ssh_job_host.sh" regression 7
     assert_status 7 "SSH failure" || return 1
     unset FAKE_SSH_EXIT
+    storage_inspect_contracts || return $?
     pass "inspection and SSH contracts"
     return 0
 }
@@ -1164,6 +1167,7 @@ skill_mode() {
         "JENKINS_URL" "JENKINS_USER" "JENKINS_TOKEN" \
         "JENKINS_NOTIFY_SLACK_CHANNEL" "SEND_SLACK_NOTIFICATION=true" "NOTIFY_SLACK_CHANNEL" \
         "JENKINS_SSH_IDENTITY_FILE" "JENKINS_SSH_USER" "JENKINS_SSH_PUBLIC_KEY" \
+        "storage-network" "TEST_TYPE" "v2_volume_test" "xargs" \
         "trigger-and-forget" "RUN_V2_TEST=false" "CUSTOM_TEST_OPTIONS" "CUSTOM_SSH_PUBLIC_KEY" \
         "at most the final 200 console lines" "20 console lines" \
         "300 characters" "[truncated; raw evidence remains in" "temporary-directory" \
@@ -1196,8 +1200,8 @@ live_readonly_mode() {
     "$SKILL_DIR/scripts/list_jobs.sh" >>"$RUN_OUTPUT" 2>&1
     RUN_STATUS=$?
     assert_status 0 "live list jobs" || return 1
-    jq -e '(.jobs|length)==3' "$RUN_OUTPUT" >/dev/null 2>&1 || { fail "live catalog schema"; return 1; }
-    for alias in regression e2e benchmark; do
+    jq -e '(.jobs|length)==4' "$RUN_OUTPUT" >/dev/null 2>&1 || { fail "live catalog schema"; return 1; }
+    for alias in regression e2e benchmark storage-network; do
         "$SKILL_DIR/scripts/get_job_parameters.sh" "$alias" >>"$RUN_OUTPUT" 2>&1
         RUN_STATUS=$?
         assert_status 0 "live parameters $alias" || return 1
@@ -1280,6 +1284,8 @@ main() {
     export JENKINS_SSH_PUBLIC_KEY="$SSH_PUBLIC_KEY_FILE"
     trap cleanup EXIT HUP INT TERM
     if [ "$mode" != live-readonly ]; then
+        # Keep offline wrapper evidence in the private temporary fixture tree.
+        export TMPDIR="$RUN_DIR"
         make_fake_tools || return 3
     fi
     case "$mode" in
@@ -1293,5 +1299,7 @@ main() {
     esac
 }
 
+# shellcheck source=storage_network_contracts.sh
+. "$SCRIPT_DIR/storage_network_contracts.sh"
 main "$@"
 exit $?
