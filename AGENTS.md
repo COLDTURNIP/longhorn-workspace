@@ -14,7 +14,7 @@ Complete authorized work within the task's path and command allowlists, preservi
 
 ## Hard guardrails
 
-- Keep every file, log, and commit message ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes, after generating `ticket/*` analysis reports, and after multi-file refactors.
+- Keep every file, log, commit message, and pull request title ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes or finalizing a commit message or pull request title, after generating `ticket/*` analysis reports, and after multi-file refactors. Its checker also rejects invisible and BiDi characters (Trojan Source).
 - YAML files changed: before completion, run `bash scripts/yaml-duplicate-key-check.sh <yaml-file> [yaml-file...]` on every changed YAML file (`--dry-run` only previews checks).
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.

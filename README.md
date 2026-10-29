@@ -250,7 +250,9 @@ These scripts are direct workspace tools:
 
 #### Quality and Change Safeguards
 
-- **ascii-scanner**: Scan changed files and enforce the ASCII-only policy.
+- **ascii-scanner**: Enforce the ASCII-only policy on changed files, commit
+  messages, and pull request titles, and reject invisible and BiDi characters
+  (Trojan Source). Uses a copy of the longhorn/longhorn ascii checker.
   - Example: "scan the changed files for non-ASCII characters"
 - **check-test-diff**: Guard against accidental risky changes to Go test files
   in a diff.

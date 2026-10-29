@@ -28,7 +28,7 @@ Rules:
 - Separate the header, issue key, explanatory body, and trailers with one blank line.
 - Keep the header concise, imperative, and free of a trailing period.
 - Explain the behavioral change and reason. Do not merely list files or repeat the header.
-- Keep the complete message ASCII-only.
+- Keep the complete message ASCII-only; verify it with `skill://ascii-scanner` (`ascii-checker.sh --commit-message`).
 - For changes committed in `repo/*`, include the DCO `Signed-off-by` trailer required by `repo/AGENTS.md`.
 - Outside `repo/*`, include signoff only when the applicable repository guidance requires it.
 - Use a verified contributor identity. Never invent a name or email address.
