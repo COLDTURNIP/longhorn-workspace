@@ -1,6 +1,6 @@
 # Repository Engineering Override
 
-This file applies to all work under `repo/` and adds only Longhorn repository-specific constraints to the workspace rules.
+This file applies to all work under `repo/` and to every worktree set member under `worktree/<key>/`, and adds only Longhorn repository-specific constraints to the workspace rules.
 
 ## Engineering constraints
 
@@ -10,5 +10,5 @@ This file applies to all work under `repo/` and adds only Longhorn repository-sp
 
 ## Repository workflow
 
-- For every `repo/*` commit message or commit operation, verify the required DCO signoff; never infer or fabricate signer identity.
-- Prefer normal working branches or bookmarks. Avoid worktrees where repository build paths, generated artifacts, or container bind mounts are path-sensitive.
+- For every `repo/*` or `worktree/*` commit message or commit operation, verify the required DCO signoff; never infer or fabricate signer identity.
+- Create Git worktrees and jj workspaces only as worktree set members under `worktree/<key>/` through `skill://worktree-set`; keep `repo/*` free of them. Work in `repo/<name>` when `bash scripts/worktree.sh repos` reports the repository as unsupported (on a new branch or bookmark named after the key), or when the work is already in progress there.

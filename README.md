@@ -46,6 +46,7 @@ workspace-root/
   scripts/                      (direct workspace tool interface)
     init-workspace.sh
     repo-init.sh
+    worktree.sh
     yaml-duplicate-key-check.sh
   .agents/skills/               (generated universal project skill cache)
   repo/                         (all Longhorn repositories)
@@ -75,6 +76,9 @@ workspace-root/
     longhorn-tests/             (integration tests)
     dep-versions/               (version coordination)
   ticket/                       (task-specific workspace for case studies)
+  worktree/                     (worktree sets, one per ticket or POC key)
+    AGENTS.md                   (rules for working inside worktree sets)
+    <key>/<repo>/               (jj workspace of repo/<repo> on branch <key>)
 ```
 
 ## Initialization
@@ -202,6 +206,11 @@ These scripts are direct workspace tools:
 - `bash scripts/repo-init.sh`: Initialize and clone repositories with upstream
   configuration. Use `--dry-run` to preview actions and `--json` when
   machine-readable output is needed.
+- `bash scripts/worktree.sh <subcommand>`: Create, inspect, and remove
+  worktree sets: one `worktree/<key>/` directory per ticket or POC holding a
+  jj workspace of each member repository on the branch `<key>`. Run
+  `bash scripts/worktree.sh --help` for subcommands and
+  `bash scripts/worktree.sh repos` for repositories that cannot join yet.
 - `bash scripts/yaml-duplicate-key-check.sh <yaml-file>`: Detect duplicate YAML
   keys in one or more files. This is read-only and exits non-zero when
   violations are found. Use `--dry-run` to preview checks.
@@ -215,6 +224,9 @@ These scripts are direct workspace tools:
   - Example: "map the interactions between components"
 - **repo-navigator**: Navigate and search across multiple repositories.
   - Example: "find the VolumeController implementation"
+- **worktree-set**: Run tickets and POCs in parallel with per-key worktree
+  sets under `worktree/`.
+  - Example: "start a worktree set for issue 12345 in go-common-libs and backupstore"
 - **verify-setup**: Check workspace prerequisites after initialization or when
   they change. Existing work is preserved; add `--build` when Go, Docker,
   Docker Buildx, and make readiness is required.

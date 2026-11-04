@@ -3,7 +3,7 @@
 ## Scope and precedence
 
 - This file applies to the entire workspace. Follow the actual harness hierarchy: higher-priority instructions govern lower-priority ones, and the user's task overrides ordinary skill guidance only within higher-priority constraints. A more specific `AGENTS.md` governs its subtree; this file governs otherwise.
-- For any engineering, build, dependency, or other `repo/*` work, read `repo/AGENTS.md` before acting.
+- For any engineering, build, dependency, or other `repo/*` or `worktree/*` work, read `repo/AGENTS.md` before acting.
 - For `ticket/*`, support-bundle, or failure-analysis work, read `ticket/AGENTS.md` before acting.
 - Before acting on a plan or delegation, orchestrators, planners, and plan reviewers must read `AGENTS.d/plan-and-delegation.md`.
 - In local reports and handoffs, refer to files with workspace-relative paths, such as `repo/longhorn-manager/controller/...`.
@@ -14,7 +14,7 @@ Complete authorized work within the task's path and command allowlists, preservi
 
 ## Hard guardrails
 
-- Keep every file, log, commit message, and pull request title ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` changes or finalizing a commit message or pull request title, after generating `ticket/*` analysis reports, and after multi-file refactors. Its checker also rejects invisible and BiDi characters (Trojan Source).
+- Keep every file, log, commit message, and pull request title ASCII-only. Use `skill://ascii-scanner` before committing `repo/*` or `worktree/*` changes or finalizing a commit message or pull request title, after generating `ticket/*` analysis reports, and after multi-file refactors. Its checker also rejects invisible and BiDi characters (Trojan Source).
 - YAML files changed: before completion, run `bash scripts/yaml-duplicate-key-check.sh <yaml-file> [yaml-file...]` on every changed YAML file (`--dry-run` only previews checks).
 - Do not edit an existing `*_test.go` test case or file unless the user explicitly requests that specific test case or file.
 - Never force-push without explicit user approval for the exact branch; when approved, use only `--force-with-lease`.
@@ -28,11 +28,12 @@ Complete authorized work within the task's path and command allowlists, preservi
 
 ## Conditional skills
 
-- Go files under `repo/*` modified: read `skill://go-import-check` and run its gate before completion.
+- Go files under `repo/*` or `worktree/*` modified: read `skill://go-import-check` and run its gate before completion.
 - Large or automated diff, or pre-merge review: use `skill://check-test-diff`.
 - Actual VCS work in a repository using Jujutsu: read `skill://jj-vcs`.
 - Drafting, reviewing, amending, or creating a Longhorn commit message: use `skill://commit-message`.
 - Manager API types changed, CRDs are out of sync, or release manifests need regeneration: use `skill://sync-crd-helm`.
 - Adding, debugging, or selecting Longhorn build, test, validation, packaging, Buildx, or Dapper flows: use `skill://longhorn-build-system`.
 - Creating, resetting, accessing, or testing on the local Longhorn test cluster, or following instructions for the deprecated `tool/vagrant` cluster: use `skill://incus-test-cluster`.
+- Starting a ticket or POC that needs its own checkout of `repo/*` repositories, running tickets in parallel, or creating, inspecting, or removing anything under `worktree/`: use `skill://worktree-set`.
 - After workspace initialization, when prerequisites changed or appear misconfigured, or when required by the selected operation, use `skill://verify-setup`. Use `--build` for build prerequisites and `--plan-mode` only when checking planning policy files.

@@ -10,6 +10,8 @@ repo/*
 !repo/repo-list.example.json
 ticket/*
 !ticket/AGENTS.md
+worktree/*
+!worktree/AGENTS.md
 docs/
 
 .tmp
