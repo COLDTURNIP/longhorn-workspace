@@ -28,7 +28,6 @@ DRY_RUN=${DRY_RUN:-false}
 source "$WORKSPACE_ROOT/scripts/lib/defensive_prelude.sh"
 
 BUILD_CHECKS=false
-PLAN_MODE=false
 custom_args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -38,9 +37,6 @@ while [ "$#" -gt 0 ]; do
       ;;
     --build)
       BUILD_CHECKS=true
-      ;;
-    --plan-mode)
-      PLAN_MODE=true
       ;;
     *)
       custom_args+=("$1")
@@ -62,7 +58,6 @@ Options:
   --json-log          Emit JSON-formatted log lines
   --no-color          Disable ANSI color output (not used)
   --force             Reserved (no effect)
-  --plan-mode         Check plan policy files during execution
   -h, --help          Show this help
 USAGE
 }
@@ -81,37 +76,8 @@ if [ "$DRY_RUN" = true ]; then
   else
     info "Dry-run: Would check workspace Git/remotes and working-tree state"
   fi
-  if [ "$PLAN_MODE" = true ]; then
-    info "Dry-run: Would check plan policy files"
-  fi
   exit "$EXIT_OK"
 fi
-
-# Plan policy checks run only for an executing plan-mode invocation.
-check_plan_mode_prerequisites() {
-  if [ "$PLAN_MODE" != true ]; then
-    return
-  fi
-
-  local plan_doc
-  local plan_docs=(
-    "AGENTS.d/plan-and-delegation.md"
-    "AGENTS.d/planning-template.md"
-  )
-  for plan_doc in "${plan_docs[@]}"; do
-    if [ ! -f "$plan_doc" ]; then
-      die "plan-mode requires $plan_doc"
-    fi
-  done
-  if ! grep -q "Plan Step Contract" "${plan_docs[0]}" 2>/dev/null; then
-    die "plan-mode check failed: missing Plan Step Contract marker in ${plan_docs[0]}"
-  fi
-  if ! grep -q "Action:" "${plan_docs[1]}" 2>/dev/null; then
-    die "plan-mode check failed: missing Action field in ${plan_docs[1]}"
-  fi
-}
-
-check_plan_mode_prerequisites
 
 check_go() {
   if ! command -v go >/dev/null 2>&1; then

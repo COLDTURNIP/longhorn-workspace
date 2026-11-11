@@ -3,8 +3,7 @@ name: verify-setup
 description: >
   Use after workspace initialization or before development when workspace Git,
   remotes, or working-tree state may need checking. Use --build when Go, Docker,
-  Docker Buildx, or make readiness is needed. Use --plan-mode only when validating
-  planning policy files or when explicitly requested.
+  Docker Buildx, or make readiness is needed.
 ---
 
 # Skill: verify-setup
@@ -31,7 +30,6 @@ bash agent-skills/verify-setup/verify_setup.sh [options]
 | `--json-log` | Emit JSON log entries for automation |
 | `--no-color` | Disable ANSI color output |
 | `--force` | Reserved; has no effect |
-| `--plan-mode` | Check plan policy files during execution |
 | `-h`, `--help` | Show help |
 
 The script resolves the workspace root from its source path, so it can be
@@ -57,20 +55,10 @@ With `--build`, the script:
 - Verifies `make` and Docker Buildx availability.
 - Warns when `$GOPATH/bin` is not in `PATH` if Go is installed.
 
-### Plan mode
-
-With `--plan-mode` during execution, verifies the required planning policy
-files and their contract markers:
-
-- `AGENTS.d/plan-and-delegation.md`
-- `AGENTS.d/planning-template.md`
-
-Plan mode has no dependency on Sisyphus or other generated plan state.
-
 ### Dry-run
 
 `--dry-run` only describes the selected checks and exits successfully. It does
-not run Git, Go, Docker, Buildx, make, or plan-policy checks.
+not run Git, Go, Docker, Buildx, or make checks.
 
 ## Output and exit codes
 
@@ -79,7 +67,7 @@ output. Exit codes are:
 
 - `0`: checks completed or a dry-run preview was shown
 - `2`: invalid option or positional argument
-- `3`: required workspace, policy, or build prerequisite is unavailable
+- `3`: required workspace or build prerequisite is unavailable
 
 ## Examples
 
@@ -92,9 +80,6 @@ bash agent-skills/verify-setup/verify_setup.sh --build
 
 # Preview without executing any checks
 bash agent-skills/verify-setup/verify_setup.sh --dry-run --build
-
-# Validate planning policy files and workspace state
-bash agent-skills/verify-setup/verify_setup.sh --plan-mode
 ```
 
 The script is read-only and does not modify workspace files.
