@@ -5,13 +5,24 @@ This file is authoritative for ticket layout and archive extraction under
 
 ## Ticket layout
 
-Each ticket contains:
+Every ticket contains `description.md`: the problem description and
+requirements.
 
-- `description.md`: the problem description and requirements.
+Analysis tickets add:
+
 - `logs/`: source archives and diagnostic material.
 - `logs/extracted/`: extracted archive contents.
 - `analysis_report.md`: the evidence-based analysis.
 - `repro/`: reproduction resources.
+
+The engineering skills add these when they need them, as described in
+`docs/agents/issue-tracker.md`:
+
+- `spec.md`: the spec.
+- `issues/<NN>-<slug>.md`: one implementation or decision ticket per file.
+- `map.md`: the wayfinder map.
+- `research/<name>.md`: research notes.
+- `drafts/<NN>-<slug>.md`: text for the user to post on GitHub.
 
 Every archive in `logs/` MUST have its own extraction directory at
 `logs/extracted/<archive-name>/`. Here, `<archive-name>` is the archive
