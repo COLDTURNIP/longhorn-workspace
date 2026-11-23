@@ -15,7 +15,7 @@ This file applies to all work under `repo/` and to every worktree set member und
 - Before starting, select and record the base: the upstream default branch, or an explicitly chosen stacked parent. Fetch upstream before relying on its state.
 - Keep history linear, without merge commits. Before the first push, fold the branch into a single commit unless the user says otherwise; after it, fixes are child commits.
 - Push a feature branch or bookmark only to `origin`, naming the remote: `jj git push --remote origin --bookmark <key>`.
-- After each push to a branch with an open pull request, request a Copilot review: `gh pr edit <n> -R longhorn/<repository> --add-reviewer @copilot`. This is the user's standing authorization; evaluate its findings like any other review.
+- Copilot review is opt-in per pull request. Once the user turns it on for a pull request, request it after each push to that pull request (`gh pr edit <n> -R longhorn/<repository> --add-reviewer @copilot`) until they turn it off, and record the setting in the ticket's `STATUS.md`.
 - Verify local state by read-only inspection, never with a temporary commit, a history reset, or a dry-run push.
 - Implement one ticket at a time with `implement`. `implement-spec` is unsupported until every repository builds from a worktree (longhorn/longhorn#14427).
 
