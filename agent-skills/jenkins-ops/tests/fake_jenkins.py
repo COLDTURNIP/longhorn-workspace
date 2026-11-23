@@ -604,9 +604,11 @@ class Handler(BaseHTTPRequestHandler):
                 builds = [
                     {
                         "building": False,
+                        "duration": 4321987,
                         "number": 7,
                         "queueId": 101,
                         "result": "SUCCESS",
+                        "timestamp": 1763014522123,
                     },
                     {
                         "building": False,

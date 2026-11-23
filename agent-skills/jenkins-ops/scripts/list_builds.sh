@@ -52,7 +52,7 @@ JENKINS_REQUEST_FORM=()
 JENKINS_REQUEST_HEADERS=()
 JENKINS_REQUEST_ARGS=()
 REQUEST_RC=0
-jenkins_request GET "${JOB_URL}api/json?tree=builds[number,queueId,building,result]{0,${COUNT}}" "$RESPONSE_FILE" || REQUEST_RC=$?
+jenkins_request GET "${JOB_URL}api/json?tree=builds[number,queueId,building,result,timestamp,duration]{0,${COUNT}}" "$RESPONSE_FILE" || REQUEST_RC=$?
 case "$REQUEST_RC" in 2|3) exit "$REQUEST_RC" ;; esac
 if [ "$REQUEST_RC" -ne 0 ]; then
   if [ "$REQUEST_RC" -eq "$JENKINS_DEADLINE_SIGNAL" ]; then
@@ -71,6 +71,7 @@ if ! jq -e -cS --arg job "$JOB_ALIAS_ARG" '
   def valid_integer: (type == "number") and (. >= 1) and (. == floor);
   def valid_queue_id: (type == "number") and (. == floor) and ((. == -1) or (. >= 1));
   def valid_result: (type == "string") or (type == "null");
+  def valid_millis: (type == "null") or ((type == "number") and (. >= 0));
   if (type != "object") or
      (has("builds") | not) or
      ((.builds | type) != "array") or
@@ -79,7 +80,9 @@ if ! jq -e -cS --arg job "$JOB_ALIAS_ARG" '
        (has("number") | not) or ((.number | valid_integer) | not) or
        (has("building") | not) or ((.building | type) != "boolean") or
        (has("result") | not) or ((.result | valid_result) | not) or
-       ((.queueId? // null) as $queue | (($queue == null) or ($queue | valid_queue_id)) | not)
+       ((.queueId? // null) as $queue | (($queue == null) or ($queue | valid_queue_id)) | not) or
+       ((.timestamp? // null) | valid_millis | not) or
+       ((.duration? // null) | valid_millis | not)
      ) then
     error("malformed recent builds")
   else
@@ -90,7 +93,11 @@ if ! jq -e -cS --arg job "$JOB_ALIAS_ARG" '
           build: .number,
           building: .building,
           queueId: (.queueId? // null),
-          result: .result
+          result: .result,
+          startedAt: ((.timestamp? // null) as $ts
+            | if ($ts != null) and ($ts > 0) then ($ts / 1000 | floor | todate) else null end),
+          durationSec: ((.duration? // null) as $d
+            | if .building or ($d == null) then null else ($d / 1000 | floor) end)
         }] | sort_by(.build) | reverse
       )
     }

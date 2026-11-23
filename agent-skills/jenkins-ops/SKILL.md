@@ -96,7 +96,7 @@ Prefix every wrapper with `agent-skills/jenkins-ops/scripts/` from the workspace
 
 A queue ID identifies an enqueue operation; a build number identifies a run within one alias. Never use one as the other and never probe nearby build numbers.
 
-- `list_builds.sh`: default count 25; range 1 through 100.
+- `list_builds.sh`: default count 25; range 1 through 100. Each build also reports `startedAt` (UTC) and `durationSec` (null while building).
 - `resolve_build.sh`: default count 50; range 1 through 100; exact Jenkins `queueId` only.
 - `wait_for_build.sh`: default timeout 600 seconds; range 1 through 86400. Expired queue recovery searches at most 100 recent builds per approved job and requires exactly one match.
 - `wait_for_job_host.sh`: default timeout 900 seconds; range 1 through 86400; polls every 15 seconds.

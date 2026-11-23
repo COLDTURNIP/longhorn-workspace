@@ -867,7 +867,8 @@ monitor_mode() {
     run_capture "$SKILL_DIR/scripts/list_builds.sh" regression 2
     assert_status 0 "bounded recent builds" || return 1
     assert_json_stdout '(. | keys)==["builds","job"] and .job=="regression" and [.builds[].build]==[7,6] and [.builds[].queueId]==[101,100]' "recent builds schema" || return 1
-    assert_log 'any(.[]; .method=="GET" and (.query|contains("tree=builds[number,queueId,building,result]{0,2}")))' "bounded recent builds request" || return 1
+    assert_log 'any(.[]; .method=="GET" and (.query|contains("tree=builds[number,queueId,building,result,timestamp,duration]{0,2}")))' "bounded recent builds request" || return 1
+    assert_json_stdout '[.builds[].startedAt]==["2025-11-13T06:15:22Z",null] and [.builds[].durationSec]==[4321,null]' "recent builds start time and duration" || return 1
     run_capture "$SKILL_DIR/scripts/resolve_build.sh" regression 101 2
     assert_status 0 "resolve build by queue id" || return 1
     assert_json_stdout '(. | keys)==["build","building","job","queueId","result"] and .job=="regression" and .queueId==101 and .build==7 and .result=="SUCCESS"' "resolved build schema" || return 1
