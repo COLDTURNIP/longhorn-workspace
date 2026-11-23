@@ -15,6 +15,7 @@ This file applies to all work under `repo/` and to every worktree set member und
 - Before starting, select and record the base: the upstream default branch, or an explicitly chosen stacked parent. Fetch upstream before relying on its state.
 - Keep history linear, without merge commits. Before the first push, fold the branch into a single commit unless the user says otherwise; after it, fixes are child commits.
 - Push a feature branch or bookmark only to `origin`, naming the remote: `jj git push --remote origin --bookmark <key>`.
+- After each push to a branch with an open pull request, request a Copilot review: `gh pr edit <n> -R longhorn/<repository> --add-reviewer @copilot`. This is the user's standing authorization; evaluate its findings like any other review.
 - Verify local state by read-only inspection, never with a temporary commit, a history reset, or a dry-run push.
 - Implement one ticket at a time with `implement`. `implement-spec` is unsupported until every repository builds from a worktree (longhorn/longhorn#14427).
 
@@ -22,4 +23,5 @@ This file applies to all work under `repo/` and to every worktree set member und
 
 - Before `skill://code-review`, commit the work so the jj working copy `@` is empty: the skill diffs against `HEAD`, which is `@-` under jj. Its fixed point defaults to the recorded base, and the repository's own `AGENTS.md` is a standards source.
 - Reviewing an upstream pull request: use the review workflow and output format in that repository's `AGENTS.md`.
+- Reviewing a `longhorn/spdk` change, ours or upstream: also apply `docs/agents/spdk-fork-review.md`.
 - Pull request body: start from the repository's PR template and write the draft to `ticket/<folder>/drafts/`. From `skill://pr`, take only the before/after evidence, placed in the template's testing section.

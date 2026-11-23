@@ -24,6 +24,30 @@ The engineering skills add these when they need them, as described in
 - `research/<name>.md`: research notes.
 - `drafts/<NN>-<slug>.md`: text for the user to post on GitHub.
 
+A ticket with work in progress keeps `STATUS.md`, the first file a resuming
+agent reads:
+
+```markdown
+# Status: <ticket folder>
+
+Updated: <UTC time>
+Last upstream check: <UTC time>
+Tracked: longhorn/longhorn#<issue> longhorn/<repository>#<pr> ...
+
+## Current state
+## Next steps
+## Live documents
+```
+
+- **Current state**: heads, PRs, merge state, verification results, decisions.
+- **Next steps**: what is waiting, and on whom.
+- **Live documents**: `path: purpose` for each file that is still current;
+  older files stay in place as history.
+
+Update `STATUS.md` at each milestone: a push, a verification result, a user
+decision, an upstream change. `scripts/gh-activity.sh --status` reads its
+`Tracked:` and `Last upstream check:` lines.
+
 Every archive in `logs/` MUST have its own extraction directory at
 `logs/extracted/<archive-name>/`. Here, `<archive-name>` is the archive
 filename without its extension. Keep each archive's contents in its own
